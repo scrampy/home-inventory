@@ -43,6 +43,22 @@ def stores():
     stores = Store.query.all()
     return jsonify([{'id': s.id, 'name': s.name} for s in stores])
 
+@api.route('/stores/<int:store_id>', methods=['PUT', 'PATCH'])
+def update_store(store_id):
+    store = Store.query.get_or_404(store_id)
+    data = request.json
+    if 'name' in data:
+        store.name = data['name']
+    db.session.commit()
+    return jsonify({'id': store.id, 'name': store.name})
+
+@api.route('/stores/<int:store_id>', methods=['DELETE'])
+def delete_store(store_id):
+    store = Store.query.get_or_404(store_id)
+    db.session.delete(store)
+    db.session.commit()
+    return '', 204
+
 # --- Aisle Endpoints ---
 @api.route('/aisles', methods=['GET', 'POST'])
 def aisles():

@@ -117,9 +117,9 @@
 - [ ] Add PUT/PATCH/DELETE for updating/deleting locations if needed
 
 ### /stores [GET, POST]
-- [ ] Ensure GET returns all stores as expected
-- [ ] Ensure POST creates a new store
-- [ ] Add PUT/PATCH/DELETE for updating/deleting stores if needed
+- [x] Ensure GET returns all stores as expected
+- [x] Ensure POST creates a new store
+- [x] Add PUT/PATCH/DELETE for updating/deleting stores if needed
 
 ### /aisles [GET, POST]
 - [ ] Ensure GET returns all aisles as expected (currently returns with store_id)

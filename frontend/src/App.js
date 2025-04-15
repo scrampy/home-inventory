@@ -3,6 +3,7 @@ import ManageInventory from './components/ManageInventory';
 import EditAddItem from './components/EditAddItem';
 import ShoppingList from './components/ShoppingList';
 import ShoppingListCreation from './components/ShoppingListCreation';
+import ManageStores from './components/ManageStores';
 
 function App() {
   const [screen, setScreen] = useState('inventory');
@@ -13,6 +14,7 @@ function App() {
   else if (screen === 'edit') ScreenComponent = <EditAddItem item={editItemData} />;
   else if (screen === 'shopping') ScreenComponent = <ShoppingList />;
   else if (screen === 'shopping-create') ScreenComponent = <ShoppingListCreation />;
+  else if (screen === 'stores') ScreenComponent = <ManageStores />;
 
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif' }}>
@@ -22,6 +24,7 @@ function App() {
         <button onClick={() => { setScreen('edit'); setEditItemData(null); }}>Edit/Add Item</button>
         <button onClick={() => setScreen('shopping')}>Shopping List</button>
         <button onClick={() => setScreen('shopping-create')}>Create Shopping List</button>
+        <button onClick={() => setScreen('stores')}>Manage Stores</button>
       </nav>
       {ScreenComponent}
     </div>
