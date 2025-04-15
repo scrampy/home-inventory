@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Inventory</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; background: #fafbfc; margin: 0; padding: 0; }
+    .container { max-width: 420px; margin: 30px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
+    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .nav-icon { background: none; border: none; cursor: pointer; font-size: 1.6em; color: #1976d2; }
+    .location-select { font-size: 1em; padding: 6px 10px; border-radius: 5px; border: 1px solid #ccc; margin-left: 8px; }
+    .item-row { display: flex; align-items: center; border-bottom: 1px solid #eee; padding: 12px 0; }
+    .item-name { flex: 2; }
+    .qty-controls { display: flex; align-items: center; gap: 6px; }
+    .qty-btn { background: #eee; border: none; border-radius: 4px; width: 28px; height: 28px; font-size: 18px; cursor: pointer; }
+    .qty-input { width: 40px; text-align: center; }
+    .store { flex: 1; color: #888; font-size: 0.95em; }
+    .add-btn { margin-top: 18px; width: 100%; padding: 10px; background: #1976d2; color: #fff; border: none; border-radius: 4px; font-size: 1em; cursor: pointer; }
+    @media (max-width: 500px) {
+      .container { padding: 10px; }
+      .item-row { font-size: 0.98em; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <button class="nav-icon" title="Home">🏠</button>
+      <div>
+        <label for="location-select" style="font-weight:500;">Location:</label>
+        <select id="location-select" class="location-select">
+          <option>Pantry</option>
+          <option>Freezer</option>
+          <option>No location</option>
+        </select>
+      </div>
+      <button class="nav-icon" title="Shopping">🛒</button>
+    </div>
+    <div class="item-row">
+      <span class="item-name">Soup</span>
+      <div class="qty-controls">
+        <button class="qty-btn">-</button>
+        <input class="qty-input" type="number" value="5" min="0">
+        <button class="qty-btn">+</button>
+      </div>
+      <span class="store">Walmart</span>
+    </div>
+    <div class="item-row">
+      <span class="item-name">Coffee</span>
+      <div class="qty-controls">
+        <button class="qty-btn">-</button>
+        <input class="qty-input" type="number" value="2" min="0">
+        <button class="qty-btn">+</button>
+      </div>
+      <span class="store">Costco</span>
+    </div>
+    <div class="item-row">
+      <span class="item-name">Shampoo</span>
+      <div class="qty-controls">
+        <button class="qty-btn">-</button>
+        <input class="qty-input" type="number" value="1" min="0">
+        <button class="qty-btn">+</button>
+      </div>
+      <span class="store">Target</span>
+    </div>
+    <button class="add-btn">+ Add New Item</button>
+  </div>
+</body>
+</html>

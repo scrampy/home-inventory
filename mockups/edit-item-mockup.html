@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Edit Item</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; background: #fafbfc; margin: 0; padding: 0; }
+    .container { max-width: 420px; margin: 30px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
+    .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .nav-icon { background: none; border: none; cursor: pointer; font-size: 1.6em; color: #1976d2; }
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-weight: 500; margin-bottom: 6px; }
+    input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+    .chip { background: #e3f2fd; color: #1976d2; border-radius: 12px; padding: 4px 12px; font-size: 0.97em; display: flex; align-items: center; }
+    .chip-remove { margin-left: 6px; cursor: pointer; color: #888; }
+    .add-btn { background: #eee; color: #1976d2; border: none; border-radius: 12px; padding: 4px 10px; margin-left: 4px; cursor: pointer; font-size: 0.95em; }
+    .photo-section { display: flex; align-items: center; gap: 12px; }
+    .photo-thumb { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; background: #eee; }
+    .btn-row { display: flex; gap: 12px; margin-top: 24px; }
+    .save-btn { flex: 2; background: #1976d2; color: #fff; border: none; border-radius: 4px; padding: 10px 0; font-size: 1em; cursor: pointer; }
+    .delete-btn { flex: 1; background: #fff; color: #d32f2f; border: 1px solid #d32f2f; border-radius: 4px; padding: 10px 0; font-size: 1em; cursor: pointer; }
+    @media (max-width: 500px) { .container { padding: 10px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <button class="nav-icon" title="Home">🏠</button>
+      <span style="font-weight: 600; font-size: 1.15em;">Edit Item</span>
+      <button class="nav-icon" title="Shopping">🛒</button>
+    </div>
+    <form>
+      <div class="form-group">
+        <label for="item-name">Item Name</label>
+        <input type="text" id="item-name" value="Soup" />
+      </div>
+      <div class="form-group">
+        <label>Locations</label>
+        <div class="chips">
+          <span class="chip">Pantry <span class="chip-remove">×</span></span>
+          <span class="chip">Freezer <span class="chip-remove">×</span></span>
+          <button class="add-btn" type="button">+ Add Location</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Stores</label>
+        <div class="chips">
+          <span class="chip">Walmart <span class="chip-remove">×</span></span>
+          <span class="chip">Costco <span class="chip-remove">×</span></span>
+          <button class="add-btn" type="button">+ Add Store</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="aisle">Aisle</label>
+        <input type="text" id="aisle" value="A3" placeholder="e.g. A3, B1, etc." />
+      </div>
+      <div class="form-group">
+        <label for="quantity">Quantity</label>
+        <input type="number" id="quantity" value="5" min="0" />
+      </div>
+      <div class="form-group">
+        <label for="notes">Notes</label>
+        <textarea id="notes" rows="2">Canned, expires 2026</textarea>
+      </div>
+      <div class="form-group">
+        <label>Photo</label>
+        <div class="photo-section">
+          <img src="https://via.placeholder.com/48x48?text=Soup" alt="Soup" class="photo-thumb" />
+          <button class="add-btn" type="button">Upload / Change Photo</button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="save-btn" type="submit">Save Changes</button>
+        <button class="delete-btn" type="button">Delete Item</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>
