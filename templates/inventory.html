@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Inventory{% if selected_location %} for {{ selected_location.name }}{% endif %}</h2>
+
+<form method="get" class="mb-3" id="locationForm">
+  <div class="input-group">
+    <select name="location_id" class="form-select" required onchange="document.getElementById('locationForm').submit();">
+      <option value="">Select Location</option>
+      {% for loc in locations %}
+      <option value="{{ loc.id }}" {% if loc.id == selected_location_id %}selected{% endif %}>{{ loc.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+
+{% if selected_location %}
+<hr>
+<h4>Add / Update Items</h4>
+<form method="post" class="row g-3 mb-4">
+  <div class="col-auto">
+    <select name="master_item_id" class="form-select" required>
+      <option value="">Select Item</option>
+      {% for item in items %}
+      <option value="{{ item.id }}">{{ item.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <input type="hidden" name="location_id" value="{{ selected_location.id }}">
+    <input type="number" step="1" min="1" name="quantity" class="form-control" placeholder="Quantity" value="1" required>
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-success">Add/Update</button>
+  </div>
+</form>
+
+{% if confirmation %}
+<div class="alert alert-success" role="alert">{{ confirmation }}</div>
+{% endif %}
+
+<h4>Current Inventory</h4>
+<table class="table" id="inventoryTable">
+  <thead>
+    <tr>
+      <th style="cursor:pointer;" onclick="sortTable(0)">Item <span id="sortIcon0"></span></th>
+      <th style="cursor:pointer;" onclick="sortTable(1)">Quantity <span id="sortIcon1"></span></th>
+      <th style="cursor:pointer;" onclick="sortTable(2)">Last Updated <span id="sortIcon2"></span></th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for inv in inventory %}
+    <tr>
+      <td>{{ inv.master_item.name }}</td>
+      <td>
+        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-flex align-items-center justify-content-center gap-1 mb-0">
+          <input type="hidden" name="quantity" value="{{ (inv.quantity - 1) if inv.quantity > 0 else 0 }}">
+          <button class="btn btn-outline-secondary btn-sm px-2 py-0" style="height:28px;" {% if inv.quantity <= 0 %}disabled{% endif %} title="Decrease">-</button>
+        </form>
+        <span class="mx-2 align-middle" style="min-width: 24px; display: inline-block; text-align: center;">{{ inv.quantity }}</span>
+        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-flex align-items-center justify-content-center gap-1 mb-0">
+          <input type="hidden" name="quantity" value="{{ inv.quantity + 1 }}">
+          <button class="btn btn-outline-secondary btn-sm px-2 py-0" style="height:28px;" title="Increase">+</button>
+        </form>
+      </td>
+      <td>{{ inv.last_updated.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>
+        <span id="delete-actions-{{ inv.id }}">
+          <button type="button" class="btn btn-sm" style="background-color:#f8d7da; color:#842029; border:1px solid #f5c2c7;" title="Remove" onclick="showDeleteConfirm({{ inv.id }})">&#10005;</button>
+        </span>
+        <span id="delete-confirm-{{ inv.id }}" style="display:none;">
+          <button type="button" class="btn btn-secondary btn-sm me-1" onclick="hideDeleteConfirm({{ inv.id }})">Cancel</button>
+          <form method="post" action="{{ url_for('web_delete_inventory', inv_id=inv.id) }}" style="display:inline;">
+            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+          </form>
+        </span>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<script>
+let sortDir = [true, true, true]; // true=asc, false=desc for each column
+function sortTable(n) {
+  const table = document.getElementById('inventoryTable');
+  let switching = true, rows, i, x, y, shouldSwitch, dir, switchcount = 0;
+  dir = sortDir[n] ? 'asc' : 'desc';
+  while (switching) {
+    switching = false;
+    rows = table.rows;
+    for (i = 1; i < (rows.length - 1); i++) {
+      shouldSwitch = false;
+      x = rows[i].getElementsByTagName('TD')[n];
+      y = rows[i + 1].getElementsByTagName('TD')[n];
+      let xVal, yVal;
+      if (n === 1) {
+        // Quantity: get the text from the span
+        xVal = parseInt(x.querySelector('span').innerText.trim());
+        yVal = parseInt(y.querySelector('span').innerText.trim());
+      } else if (n === 2) {
+        xVal = Date.parse(x.innerText.trim());
+        yVal = Date.parse(y.innerText.trim());
+      } else {
+        xVal = x.innerText.trim();
+        yVal = y.innerText.trim();
+      }
+      if (dir === 'asc' ? xVal > yVal : xVal < yVal) {
+        shouldSwitch = true;
+        break;
+      }
+    }
+    if (shouldSwitch) {
+      rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+      switching = true;
+      switchcount++;
+    } else {
+      if (switchcount === 0 && dir === 'asc') {
+        dir = 'desc';
+        sortDir[n] = false;
+        switching = true;
+      }
+    }
+  }
+  // Update sort icons
+  for (let k = 0; k < 3; k++) {
+    document.getElementById('sortIcon'+k).innerText = '';
+  }
+  document.getElementById('sortIcon'+n).innerText = sortDir[n] ? '▲' : '▼';
+  sortDir[n] = !sortDir[n];
+}
+
+// Inline delete confirmation logic
+let lastConfirmId = null;
+function showDeleteConfirm(invId) {
+  if (lastConfirmId !== null && lastConfirmId !== invId) {
+    hideDeleteConfirm(lastConfirmId);
+  }
+  document.getElementById('delete-actions-' + invId).style.display = 'none';
+  document.getElementById('delete-confirm-' + invId).style.display = '';
+  lastConfirmId = invId;
+}
+function hideDeleteConfirm(invId) {
+  document.getElementById('delete-actions-' + invId).style.display = '';
+  document.getElementById('delete-confirm-' + invId).style.display = 'none';
+  lastConfirmId = null;
+}
+</script>
+{% endif %}
+{% endblock %}

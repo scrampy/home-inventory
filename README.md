@@ -36,6 +36,37 @@ home-inventory/
 2. Install dependencies: `npm install`
 3. Start the app: `npm start`
 
+## What a Clean Rewrite Should Look Like
+
+- **App Structure:**
+  - One main App component with a simple screen state (e.g., `screen`).
+  - Dedicated components for ItemList, ItemForm, StoreList, StoreForm, etc.
+- **Navigation:**
+  - Minimal, explicit navigation logic (e.g., `useState('screen')`).
+- **Form Handling:**
+  - Each form manages its own state.
+  - On error, error messages are displayed inline, input is preserved, and navigation does not change.
+- **API Calls:**
+  - Simple fetch/axios calls with clear error handling.
+- **No Over-Engineering:**
+  - No unnecessary keys, localStorage hacks, or defensive double state.
+- **Testing:**
+  - Easy to test and reason about each component.
+
+## Recommendations
+
+- **Start a new, clean repo or directory.**
+  - Scaffold the app with Create React App or Vite (for frontend), Flask/FastAPI (for backend if using Python).
+  - Implement only the core screens and flows.
+  - Keep state and navigation logic as simple as possible.
+  - Add error handling as a first-class concern in each form.
+
+**Estimated time for a working CRUD app:**
+- **Frontend:** 1–2 days for all screens and error handling.
+- **Backend:** 1 day for REST endpoints and DB models.
+
+A clean rewrite will be faster, simpler, and more maintainable than continuing to patch the current codebase.
+
 ---
 
 This project is in the early stages. See `HomeInventorySpec.md` for the specification.

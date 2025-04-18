@@ -112,14 +112,14 @@
 ## Backend API Integration To-Do List
 
 ### /locations [GET, POST]
-- [x] Ensure GET returns all locations as expected
-- [x] Ensure POST creates a new location
+- [ ] Ensure GET returns all locations as expected
+- [ ] Ensure POST creates a new location
 - [ ] Add PUT/PATCH/DELETE for updating/deleting locations if needed
 
 ### /stores [GET, POST]
-- [x] Ensure GET returns all stores as expected
-- [x] Ensure POST creates a new store
-- [x] Add PUT/PATCH/DELETE for updating/deleting stores if needed
+- [ ] Ensure GET returns all stores as expected
+- [ ] Ensure POST creates a new store
+- [ ] Add PUT/PATCH/DELETE for updating/deleting stores if needed
 
 ### /aisles [GET, POST]
 - [ ] Ensure GET returns all aisles as expected (currently returns with store_id)
@@ -144,13 +144,13 @@
 
 ## Task List (In Progress / Next Steps)
 
-- [x] Scaffold the React frontend in a `frontend/` directory using npm and set up the initial project structure.
-- [x] Implement basic React screens for:
-  - [x] Manage Inventory (showing items, quantities, locations, and stores, with edit icon to access Edit/Add Item)
-  - [x] Edit/Add Item (including aisle selection and new aisle creation, single-select, global list)
-  - [x] Shopping List (with store filter and aisle display)
+- [ ] Scaffold the React frontend in a `frontend/` directory using npm and set up the initial project structure.
+- [ ] Implement basic React screens for:
+  - [ ] Manage Inventory (showing items, quantities, locations, and stores, with edit icon to access Edit/Add Item)
+  - [ ] Edit/Add Item (including aisle selection and new aisle creation, single-select, global list)
+  - [ ] Shopping List (with store filter and aisle display)
 - [ ] Connect the React frontend to the Flask backend API for CRUD operations.
-- [x] Provide user-friendly, browser-based workflows for adding locations, stores, aisles, and items (mock data for now).
+- [ ] Provide user-friendly, browser-based workflows for adding locations, stores, aisles, and items (mock data for now).
 - [ ] Add seed data and/or initial test data for easier local testing.
 
 ---
