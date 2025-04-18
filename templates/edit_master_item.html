@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Edit Item</h2>
+{% if confirmation %}
+  <div class="alert alert-success alert-dismissible fade show mt-2 mb-3" role="alert">
+    {{ confirmation }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+{% endif %}
+{% if error %}
+  <div class="alert alert-danger alert-dismissible fade show mt-2 mb-3" role="alert">
+    {{ error }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+{% endif %}
+<form method="post">
+  <div class="mb-3">
+    <label for="item-name" class="form-label">Item Name</label>
+    <input type="text" class="form-control" id="item-name" name="name" value="{{ item.name }}" required>
+  </div>
+  <div class="mb-3">
+    <label for="aisle" class="form-label">Aisle</label>
+    <input type="text" class="form-control" id="aisle" name="aisle" value="{{ item.aisle or '' }}">
+  </div>
+  <div class="mb-3">
+    <label for="notes" class="form-label">Notes</label>
+    <textarea class="form-control" id="notes" name="notes" rows="2">{{ item.notes or '' }}</textarea>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Stores</label>
+    <div class="chips">
+      {% for store in item.stores %}
+        <span class="chip">{{ store.name }} <span class="chip-remove" onclick="removeStore({{ store.id }})">&times;</span></span>
+      {% endfor %}
+      <select id="add-store-select" class="form-select d-inline w-auto" name="add_store_id">
+        <option value="">+ Add Store</option>
+        {% for store in stores if store not in item.stores %}
+          <option value="{{ store.id }}">{{ store.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="btn-row mt-4">
+    <button class="btn btn-primary" type="submit">Save Changes</button>
+    <a class="btn btn-outline-danger ms-2" href="#" onclick="return confirm('Delete not implemented yet')">Delete Item</a>
+  </div>
+</form>
+{% endblock %}

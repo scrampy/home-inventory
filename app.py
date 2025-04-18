@@ -20,6 +20,19 @@ class MasterItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), unique=True, nullable=False)
     default_unit = db.Column(db.String(64), nullable=True)
+    aisle = db.Column(db.String(40))
+    notes = db.Column(db.String(200))
+    stores = db.relationship('Store', secondary='item_stores', back_populates='items')
+
+class Store(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    items = db.relationship('MasterItem', secondary='item_stores', back_populates='stores')
+
+item_stores = db.Table('item_stores',
+    db.Column('item_id', db.Integer, db.ForeignKey('master_item.id'), primary_key=True),
+    db.Column('store_id', db.Integer, db.ForeignKey('store.id'), primary_key=True)
+)
 
 class Inventory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -44,6 +57,13 @@ class MasterItemSchema(Schema):
     id = fields.Int(dump_only=True)
     name = fields.Str(required=True)
     default_unit = fields.Str(allow_none=True)
+    aisle = fields.Str(allow_none=True)
+    notes = fields.Str(allow_none=True)
+    stores = fields.Nested('StoreSchema', many=True, dump_only=True)
+
+class StoreSchema(Schema):
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True)
 
 class InventorySchema(Schema):
     id = fields.Int(dump_only=True)
@@ -59,6 +79,8 @@ location_schema = LocationSchema()
 locations_schema = LocationSchema(many=True)
 master_item_schema = MasterItemSchema()
 master_items_schema = MasterItemSchema(many=True)
+store_schema = StoreSchema()
+stores_schema = StoreSchema(many=True)
 inventory_schema = InventorySchema()
 inventories_schema = InventorySchema(many=True)
 
@@ -104,6 +126,23 @@ def create_master_item():
     db.session.add(item)
     db.session.commit()
     return jsonify(master_item_schema.dump(item)), 201
+
+# Store endpoints
+@app.route('/stores', methods=['GET'])
+def get_stores():
+    stores = Store.query.all()
+    return jsonify(stores_schema.dump(stores))
+
+@app.route('/stores', methods=['POST'])
+def create_store():
+    json_data = request.get_json()
+    try:
+        store = store_schema.load(json_data, session=db.session)
+    except ValidationError as err:
+        return jsonify(err.messages), 400
+    db.session.add(store)
+    db.session.commit()
+    return jsonify(store_schema.dump(store)), 201
 
 # Inventory endpoints
 @app.route('/inventory', methods=['GET'])
@@ -174,6 +213,14 @@ def seed():
     db.session.commit()
     return 'Database seeded!', 201
 
+# Seed stores
+@app.route('/seed_stores')
+def seed_stores():
+    stores = [Store(name=s) for s in ['Walmart', 'Costco', 'No Frills']]
+    db.session.add_all(stores)
+    db.session.commit()
+    return 'Stores seeded.'
+
 # Web interface routes
 @app.route('/', methods=['GET'])
 def index():
@@ -219,9 +266,11 @@ def web_master_items():
     error = None
     if request.method == 'POST':
         name = request.form.get('name')
+        aisle = request.form.get('aisle')
+        notes = request.form.get('notes')
         if name:
             norm_name = name.strip().title()
-            item = MasterItem(name=norm_name)
+            item = MasterItem(name=norm_name, aisle=aisle, notes=notes)
             db.session.add(item)
             try:
                 db.session.commit()
@@ -232,6 +281,40 @@ def web_master_items():
     error = request.args.get('error')
     items = MasterItem.query.order_by(MasterItem.name).all()
     return render_template('master_items.html', items=items, error=error)
+
+@app.route('/web/master-items/edit/<int:item_id>', methods=['GET', 'POST'])
+def web_edit_master_item(item_id):
+    item = MasterItem.query.get_or_404(item_id)
+    locations = Location.query.order_by(Location.name).all()
+    stores = Store.query.order_by(Store.name).all()
+    confirmation = None
+    error = None
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip().title()
+        aisle = request.form.get('aisle', '').strip()
+        notes = request.form.get('notes', '').strip()
+        add_store_id = request.form.get('add_store_id')
+        # Update fields
+        item.name = name
+        item.aisle = aisle
+        item.notes = notes
+        # Add store association
+        if add_store_id:
+            store = Store.query.get(int(add_store_id))
+            if store and store not in item.stores:
+                item.stores.append(store)
+        # Remove store association (if implemented via JS in future)
+        # ...
+        try:
+            db.session.commit()
+            confirmation = "Changes saved."
+        except IntegrityError:
+            db.session.rollback()
+            error = f"Item '{name}' already exists."
+        return redirect(url_for('web_edit_master_item', item_id=item.id, confirmation=confirmation, error=error))
+    confirmation = request.args.get('confirmation')
+    error = request.args.get('error')
+    return render_template('edit_master_item.html', item=item, locations=locations, stores=stores, confirmation=confirmation, error=error)
 
 @app.route('/web/inventory', methods=['GET', 'POST'])
 def web_inventory():
@@ -315,6 +398,40 @@ def web_delete_inventory(inv_id):
     db.session.commit()
     confirmation = f"Removed {item_name} from this location."
     return redirect(url_for('web_inventory', location_id=loc_id, confirmation=confirmation))
+
+@app.route('/web/stores', methods=['GET', 'POST'])
+def web_stores():
+    error = None
+    confirmation = None
+    if request.method == 'POST':
+        name = request.form.get('name')
+        if name:
+            norm_name = name.strip().title()
+            store = Store(name=norm_name)
+            db.session.add(store)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                error = f"Store '{norm_name}' already exists."
+        return redirect(url_for('web_stores', error=error) if not error else url_for('web_stores', error=error))
+    error = request.args.get('error')
+    confirmation = request.args.get('confirmation')
+    stores = Store.query.order_by(Store.name).all()
+    for store in stores:
+        store.num_items = len(store.items)
+    return render_template('stores.html', stores=stores, error=error, confirmation=confirmation)
+
+@app.route('/web/stores/delete/<int:store_id>', methods=['POST'])
+def web_delete_store(store_id):
+    store = Store.query.get_or_404(store_id)
+    if len(store.items) > 0:
+        error = f"Cannot delete '{store.name}' because it is still associated with items. Remove all associations first."
+        return redirect(url_for('web_stores', error=error))
+    db.session.delete(store)
+    db.session.commit()
+    confirmation = f"Store '{store.name}' deleted."
+    return redirect(url_for('web_stores', confirmation=confirmation))
 
 if __name__ == '__main__':
     app.run(debug=True)
