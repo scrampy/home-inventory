@@ -16,11 +16,17 @@ class Location(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), unique=True, nullable=False)
 
+class Aisle(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    items = db.relationship('MasterItem', back_populates='aisle')
+
 class MasterItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), unique=True, nullable=False)
     default_unit = db.Column(db.String(64), nullable=True)
-    aisle = db.Column(db.String(40))
+    aisle_id = db.Column(db.Integer, db.ForeignKey('aisle.id'))
+    aisle = db.relationship('Aisle', back_populates='items')
     notes = db.Column(db.String(200))
     stores = db.relationship('Store', secondary='item_stores', back_populates='items')
 
@@ -53,11 +59,15 @@ class LocationSchema(Schema):
     id = fields.Int(dump_only=True)
     name = fields.Str(required=True)
 
+class AisleSchema(Schema):
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True)
+
 class MasterItemSchema(Schema):
     id = fields.Int(dump_only=True)
     name = fields.Str(required=True)
     default_unit = fields.Str(allow_none=True)
-    aisle = fields.Str(allow_none=True)
+    aisle = fields.Nested('AisleSchema', dump_only=True)
     notes = fields.Str(allow_none=True)
     stores = fields.Nested('StoreSchema', many=True, dump_only=True)
 
@@ -77,6 +87,8 @@ class InventorySchema(Schema):
 
 location_schema = LocationSchema()
 locations_schema = LocationSchema(many=True)
+aisle_schema = AisleSchema()
+aisles_schema = AisleSchema(many=True)
 master_item_schema = MasterItemSchema()
 master_items_schema = MasterItemSchema(many=True)
 store_schema = StoreSchema()
@@ -109,6 +121,23 @@ def create_location():
     db.session.add(loc)
     db.session.commit()
     return jsonify(location_schema.dump(loc)), 201
+
+# Aisle endpoints
+@app.route('/aisles', methods=['GET'])
+def get_aisles():
+    aisles = Aisle.query.all()
+    return jsonify(aisles_schema.dump(aisles))
+
+@app.route('/aisles', methods=['POST'])
+def create_aisle():
+    json_data = request.get_json()
+    try:
+        aisle = aisle_schema.load(json_data, session=db.session)
+    except ValidationError as err:
+        return jsonify(err.messages), 400
+    db.session.add(aisle)
+    db.session.commit()
+    return jsonify(aisle_schema.dump(aisle)), 201
 
 # MasterItem endpoints
 @app.route('/master-items', methods=['GET'])
@@ -192,6 +221,17 @@ def seed():
     db.session.add_all(locations)
     db.session.commit()
 
+    aisles = [
+        Aisle(name='Bakery'),
+        Aisle(name='Canned Goods'),
+        Aisle(name='Dairy'),
+        Aisle(name='Meat'),
+        Aisle(name='Produce'),
+        Aisle(name='Spices')
+    ]
+    db.session.add_all(aisles)
+    db.session.commit()
+
     grocery_items = [
         'Milk', 'Eggs', 'Butter', 'Cheddar Cheese', 'Yogurt', 'Orange Juice', 'Apples', 'Bananas', 'Grapes', 'Strawberries',
         'Chicken Breast', 'Ground Beef', 'Pork Chops', 'Bacon', 'Ham', 'Salmon', 'Tilapia', 'Shrimp', 'Broccoli', 'Carrots',
@@ -266,11 +306,11 @@ def web_master_items():
     error = None
     if request.method == 'POST':
         name = request.form.get('name')
-        aisle = request.form.get('aisle')
+        aisle_id = request.form.get('aisle_id')
         notes = request.form.get('notes')
         if name:
             norm_name = name.strip().title()
-            item = MasterItem(name=norm_name, aisle=aisle, notes=notes)
+            item = MasterItem(name=norm_name, aisle_id=aisle_id, notes=notes)
             db.session.add(item)
             try:
                 db.session.commit()
@@ -280,23 +320,25 @@ def web_master_items():
         return redirect(url_for('web_master_items', error=error) if not error else url_for('web_master_items', error=error))
     error = request.args.get('error')
     items = MasterItem.query.order_by(MasterItem.name).all()
-    return render_template('master_items.html', items=items, error=error)
+    aisles = Aisle.query.order_by(Aisle.name).all()
+    return render_template('master_items.html', items=items, aisles=aisles, error=error)
 
 @app.route('/web/master-items/edit/<int:item_id>', methods=['GET', 'POST'])
 def web_edit_master_item(item_id):
     item = MasterItem.query.get_or_404(item_id)
     locations = Location.query.order_by(Location.name).all()
     stores = Store.query.order_by(Store.name).all()
+    aisles = Aisle.query.order_by(Aisle.name).all()
     confirmation = None
     error = None
     if request.method == 'POST':
         name = request.form.get('name', '').strip().title()
-        aisle = request.form.get('aisle', '').strip()
+        aisle_id = request.form.get('aisle_id')
         notes = request.form.get('notes', '').strip()
         add_store_id = request.form.get('add_store_id')
         # Update fields
         item.name = name
-        item.aisle = aisle
+        item.aisle_id = aisle_id
         item.notes = notes
         # Add store association
         if add_store_id:
@@ -314,7 +356,7 @@ def web_edit_master_item(item_id):
         return redirect(url_for('web_edit_master_item', item_id=item.id, confirmation=confirmation, error=error))
     confirmation = request.args.get('confirmation')
     error = request.args.get('error')
-    return render_template('edit_master_item.html', item=item, locations=locations, stores=stores, confirmation=confirmation, error=error)
+    return render_template('edit_master_item.html', item=item, locations=locations, stores=stores, aisles=aisles, confirmation=confirmation, error=error)
 
 @app.route('/web/inventory', methods=['GET', 'POST'])
 def web_inventory():
@@ -432,6 +474,33 @@ def web_delete_store(store_id):
     db.session.commit()
     confirmation = f"Store '{store.name}' deleted."
     return redirect(url_for('web_stores', confirmation=confirmation))
+
+@app.route('/web/aisles', methods=['GET', 'POST'])
+def web_aisles():
+    error = None
+    if request.method == 'POST':
+        name = request.form.get('name')
+        delete_id = request.form.get('delete_id')
+        if name:
+            norm_name = name.strip().title()
+            if not norm_name:
+                error = 'Aisle name cannot be empty.'
+            elif Aisle.query.filter_by(name=norm_name).first():
+                error = f'Aisle "{norm_name}" already exists.'
+            else:
+                aisle = Aisle(name=norm_name)
+                db.session.add(aisle)
+                db.session.commit()
+        elif delete_id:
+            aisle = Aisle.query.get(delete_id)
+            if aisle:
+                if aisle.items:
+                    error = f'Cannot delete aisle "{aisle.name}" because it is in use.'
+                else:
+                    db.session.delete(aisle)
+                    db.session.commit()
+    aisles = Aisle.query.order_by(Aisle.name).all()
+    return render_template('aisles.html', aisles=aisles, error=error)
 
 if __name__ == '__main__':
     app.run(debug=True)

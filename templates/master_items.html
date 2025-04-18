@@ -10,6 +10,12 @@
 <form method="post" class="mb-3">
   <div class="input-group">
     <input name="name" class="form-control" placeholder="New item name" required>
+    <select name="aisle_id" class="form-select" required>
+      <option value="">Select Aisle</option>
+      {% for aisle in aisles %}
+        <option value="{{ aisle.id }}">{{ aisle.name }}</option>
+      {% endfor %}
+    </select>
     <button class="btn btn-primary">Add</button>
   </div>
 </form>
@@ -17,6 +23,7 @@
   {% for item in items %}
   <li class="list-group-item d-flex justify-content-between align-items-center">
     <a href="{{ url_for('web_edit_master_item', item_id=item.id) }}">{{ item.name }}</a>
+    <span class="text-muted small">Aisle: {{ item.aisle.name if item.aisle else '—' }}</span>
   </li>
   {% endfor %}
 </ul>

@@ -19,8 +19,13 @@
     <input type="text" class="form-control" id="item-name" name="name" value="{{ item.name }}" required>
   </div>
   <div class="mb-3">
-    <label for="aisle" class="form-label">Aisle</label>
-    <input type="text" class="form-control" id="aisle" name="aisle" value="{{ item.aisle or '' }}">
+    <label for="aisle_id" class="form-label">Aisle</label>
+    <select class="form-select" id="aisle_id" name="aisle_id" required>
+      <option value="">Select Aisle</option>
+      {% for aisle in aisles %}
+        <option value="{{ aisle.id }}" {% if item.aisle and item.aisle.id == aisle.id %}selected{% endif %}>{{ aisle.name }}</option>
+      {% endfor %}
+    </select>
   </div>
   <div class="mb-3">
     <label for="notes" class="form-label">Notes</label>

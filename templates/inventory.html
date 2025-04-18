@@ -57,7 +57,10 @@
   <tbody>
     {% for inv in inventory %}
     <tr>
-      <td><a href="{{ url_for('web_edit_master_item', item_id=inv.master_item.id) }}">{{ inv.master_item.name }}</a></td>
+      <td>
+        <a href="{{ url_for('web_edit_master_item', item_id=inv.master_item.id) }}">{{ inv.master_item.name }}</a>
+        <div class="text-muted small">Aisle: {{ inv.master_item.aisle.name if inv.master_item.aisle else '—' }}</div>
+      </td>
       <td>
         <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-flex align-items-center justify-content-center gap-1 mb-0">
           <input type="hidden" name="quantity" value="{{ (inv.quantity - 1) if inv.quantity > 0 else 0 }}">
