@@ -1,6 +1,12 @@
 {% extends 'base.html' %}
 {% block content %}
 <h2>Master Items</h2>
+{% if error %}
+  <div class="alert alert-danger alert-dismissible fade show mt-2 mb-3" role="alert">
+    {{ error }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+{% endif %}
 <form method="post" class="mb-3">
   <div class="input-group">
     <input name="name" class="form-control" placeholder="New item name" required>

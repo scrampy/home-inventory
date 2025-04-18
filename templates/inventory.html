@@ -16,6 +16,12 @@
 {% if selected_location %}
 <hr>
 <h4>Add / Update Items</h4>
+{% if error %}
+  <div class="alert alert-danger alert-dismissible fade show mt-2 mb-3" role="alert">
+    {{ error }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+{% endif %}
 <form method="post" class="row g-3 mb-4">
   <div class="col-auto">
     <select name="master_item_id" class="form-select" required>

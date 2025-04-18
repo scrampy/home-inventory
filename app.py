@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError, Schema, fields
 from datetime import datetime
 import random
@@ -159,7 +160,7 @@ def seed():
         'Rice', 'Pasta', 'Bread', 'Tortillas', 'Cereal', 'Oatmeal', 'Peanut Butter', 'Jelly', 'Canned Beans', 'Canned Corn',
         'Soup', 'Crackers', 'Chips', 'Cookies', 'Ice Cream', 'Frozen Pizza', 'Frozen Vegetables', 'Ketchup', 'Mustard', 'Mayonnaise'
     ]
-    items = [MasterItem(name=name) for name in grocery_items]
+    items = [MasterItem(name=name.title()) for name in grocery_items]
     db.session.add_all(items)
     db.session.commit()
 
@@ -180,27 +181,57 @@ def index():
 
 @app.route('/web/locations', methods=['GET', 'POST'])
 def web_locations():
+    error = None
+    confirmation = None
     if request.method == 'POST':
         name = request.form.get('name')
         if name:
-            loc = Location(name=name.strip())
+            norm_name = name.strip().title()
+            loc = Location(name=norm_name)
             db.session.add(loc)
-            db.session.commit()
-        return redirect(url_for('web_locations'))
-    locations = Location.query.all()
-    return render_template('locations.html', locations=locations)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                error = f"Location '{norm_name}' already exists."
+        return redirect(url_for('web_locations', error=error) if not error else url_for('web_locations', error=error))
+    error = request.args.get('error')
+    confirmation = request.args.get('confirmation')
+    locations = Location.query.order_by(Location.name).all()
+    # Attach number of items for each location
+    for loc in locations:
+        loc.num_items = Inventory.query.filter_by(location_id=loc.id).count()
+    return render_template('locations.html', locations=locations, error=error, confirmation=confirmation)
+
+@app.route('/web/locations/delete/<int:loc_id>', methods=['POST'])
+def web_delete_location(loc_id):
+    loc = Location.query.get_or_404(loc_id)
+    if Inventory.query.filter_by(location_id=loc_id).count() > 0:
+        error = f"Cannot delete '{loc.name}' because it still contains inventory. Remove all items first."
+        return redirect(url_for('web_locations', error=error))
+    db.session.delete(loc)
+    db.session.commit()
+    confirmation = f"Location '{loc.name}' deleted."
+    return redirect(url_for('web_locations', confirmation=confirmation))
 
 @app.route('/web/master-items', methods=['GET', 'POST'])
 def web_master_items():
+    error = None
     if request.method == 'POST':
         name = request.form.get('name')
         if name:
-            item = MasterItem(name=name.strip())
+            norm_name = name.strip().title()
+            item = MasterItem(name=norm_name)
             db.session.add(item)
-            db.session.commit()
-        return redirect(url_for('web_master_items'))
-    items = MasterItem.query.all()
-    return render_template('master_items.html', items=items)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                error = f"Item '{norm_name}' already exists."
+        return redirect(url_for('web_master_items', error=error) if not error else url_for('web_master_items', error=error))
+    error = request.args.get('error')
+    items = MasterItem.query.order_by(MasterItem.name).all()
+    return render_template('master_items.html', items=items, error=error)
 
 @app.route('/web/inventory', methods=['GET', 'POST'])
 def web_inventory():
@@ -208,6 +239,7 @@ def web_inventory():
     selected_location = None
     inventory = []
     confirmation = None
+    error = None
     loc_param = request.args.get('location_id', type=int)
 
     if request.method == 'POST':
@@ -215,7 +247,7 @@ def web_inventory():
         item_id = request.form.get('master_item_id')
         qty = request.form.get('quantity')
         try:
-            quantity = float(qty)
+            quantity = int(qty)
             if quantity < 0:
                 raise ValueError
         except:
@@ -225,15 +257,20 @@ def web_inventory():
             existing = Inventory.query.filter_by(location_id=loc_id, master_item_id=item_id).first()
             item_obj = MasterItem.query.get(item_id)
             loc_obj = Location.query.get(loc_id)
-            if existing:
-                existing.quantity += quantity
-                existing.last_updated = datetime.utcnow()
-                confirmation = f"Added {quantity:g} to {item_obj.name} in {loc_obj.name}. New quantity: {existing.quantity:g}."
-            else:
-                inv = Inventory(location_id=loc_id, master_item_id=item_id, quantity=quantity)
-                db.session.add(inv)
-                confirmation = f"Added {quantity:g} of {item_obj.name} to {loc_obj.name}."
-            db.session.commit()
+            try:
+                if existing:
+                    existing.quantity += quantity
+                    existing.last_updated = datetime.utcnow()
+                    confirmation = f"Added {quantity:g} to {item_obj.name} in {loc_obj.name}. New quantity: {existing.quantity:g}."
+                else:
+                    inv = Inventory(location_id=loc_id, master_item_id=item_id, quantity=quantity)
+                    db.session.add(inv)
+                    confirmation = f"Added {quantity:g} of {item_obj.name} to {loc_obj.name}."
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                error = f"Item '{item_obj.name}' already exists in {loc_obj.name}."
+                return redirect(url_for('web_inventory', location_id=loc_id, error=error))
             # Stay on same location after POST
             return redirect(url_for('web_inventory', location_id=loc_id, confirmation=confirmation))
         else:
@@ -242,6 +279,7 @@ def web_inventory():
 
     # GET
     confirmation = request.args.get('confirmation')
+    error = request.args.get('error')
     if loc_param:
         selected_location = Location.query.get(loc_param)
         inventory = Inventory.query.filter_by(location_id=loc_param).all()
@@ -251,7 +289,7 @@ def web_inventory():
         items = MasterItem.query.filter(~MasterItem.id.in_(inventory_item_ids)).all()
     else:
         items = MasterItem.query.all()
-    return render_template('inventory.html', locations=locations, items=items, selected_location=selected_location, inventory=inventory, selected_location_id=loc_param, confirmation=confirmation)
+    return render_template('inventory.html', locations=locations, items=items, selected_location=selected_location, inventory=inventory, selected_location_id=loc_param, confirmation=confirmation, error=error)
 
 @app.route('/web/inventory/update/<int:inv_id>', methods=['POST'])
 def web_update_inventory(inv_id):
