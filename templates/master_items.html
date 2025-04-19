@@ -23,7 +23,7 @@
   {% for item in items %}
   <li class="list-group-item d-flex justify-content-between align-items-center">
     <a href="{{ url_for('web_edit_master_item', item_id=item.id) }}">{{ item.name }}</a>
-    <span class="text-muted small">Aisle: {{ item.aisle.name if item.aisle else '—' }}</span>
+    <span class="text-muted small">Stores: {% if item.stores %}{{ item.stores | map(attribute='name') | join(', ') }}{% else %}—{% endif %}</span>
     <form method="post" action="{{ url_for('web_add_to_shopping_list', item_id=item.id) }}" class="d-inline ms-2">
       <button class="btn btn-sm btn-outline-primary" type="submit" {% if item.shopping_list_items %}disabled{% endif %}>Add to Shopping List</button>
     </form>

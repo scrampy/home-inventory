@@ -61,13 +61,17 @@
         <a href="{{ url_for('web_edit_master_item', item_id=inv.master_item.id) }}">{{ inv.master_item.name }}</a>
       </td>
       <td>
-        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-flex align-items-center justify-content-center gap-1 mb-0">
+        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-flex align-items-center justify-content-center gap-1 mb-0 inventory-update-form">
           <input type="hidden" name="quantity" value="{{ (inv.quantity - 1) if inv.quantity > 0 else 0 }}">
+          <input type="hidden" name="sort_col" value="{{ request.args.get('sort_col', '') }}">
+          <input type="hidden" name="sort_dir" value="{{ request.args.get('sort_dir', '') }}">
           <button class="btn btn-outline-secondary btn-sm px-2 py-0" style="height:28px;" {% if inv.quantity <= 0 %}disabled{% endif %} title="Decrease">-</button>
         </form>
         <span class="mx-2 align-middle" style="min-width: 24px; display: inline-block; text-align: center;">{{ inv.quantity }}</span>
-        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-flex align-items-center justify-content-center gap-1 mb-0">
+        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-flex align-items-center justify-content-center gap-1 mb-0 inventory-update-form">
           <input type="hidden" name="quantity" value="{{ inv.quantity + 1 }}">
+          <input type="hidden" name="sort_col" value="{{ request.args.get('sort_col', '') }}">
+          <input type="hidden" name="sort_dir" value="{{ request.args.get('sort_dir', '') }}">
           <button class="btn btn-outline-secondary btn-sm px-2 py-0" style="height:28px;" title="Increase">+</button>
         </form>
       </td>
@@ -94,10 +98,20 @@
 </table>
 <script>
 let sortDir = [true, true, true]; // true=asc, false=desc for each column
-function sortTable(n) {
+// Read initial sort state from URL
+function getQueryParam(name) {
+  const url = new URL(window.location);
+  return url.searchParams.get(name);
+}
+function setQueryParam(name, value) {
+  const url = new URL(window.location);
+  url.searchParams.set(name, value);
+  history.replaceState(null, '', url);
+}
+function sortTable(n, forceDir) {
   const table = document.getElementById('inventoryTable');
   let switching = true, rows, i, x, y, shouldSwitch, dir, switchcount = 0;
-  dir = sortDir[n] ? 'asc' : 'desc';
+  dir = (typeof forceDir !== 'undefined') ? forceDir : (sortDir[n] ? 'asc' : 'desc');
   while (switching) {
     switching = false;
     rows = table.rows;
@@ -129,7 +143,7 @@ function sortTable(n) {
     } else {
       if (switchcount === 0 && dir === 'asc') {
         dir = 'desc';
-        sortDir[n] = false;
+        if (typeof forceDir === 'undefined') sortDir[n] = false;
         switching = true;
       }
     }
@@ -138,10 +152,36 @@ function sortTable(n) {
   for (let k = 0; k < 3; k++) {
     document.getElementById('sortIcon'+k).innerText = '';
   }
-  document.getElementById('sortIcon'+n).innerText = sortDir[n] ? '▲' : '▼';
-  sortDir[n] = !sortDir[n];
+  document.getElementById('sortIcon'+n).innerText = dir === 'asc' ? '▲' : '▼';
+  // Only toggle sortDir[n] if user clicked (forceDir is undefined)
+  if (typeof forceDir === 'undefined') {
+    sortDir[n] = !sortDir[n];
+  } else {
+    // Set sortDir[n] so next click will toggle
+    sortDir[n] = (dir === 'asc') ? false : true;
+  }
+  document.querySelectorAll('.inventory-update-form input[name="sort_col"]').forEach(e => e.value = n);
+  document.querySelectorAll('.inventory-update-form input[name="sort_dir"]').forEach(e => e.value = dir);
+  setQueryParam('sort_col', n);
+  setQueryParam('sort_dir', dir);
 }
-
+// On page load, just update sort indicators and hidden fields, do NOT sort table
+window.addEventListener('DOMContentLoaded', function() {
+  let col = getQueryParam('sort_col');
+  let dir = getQueryParam('sort_dir');
+  if (col !== null && dir !== null) {
+    // Set sort icon
+    for (let k = 0; k < 3; k++) {
+      document.getElementById('sortIcon'+k).innerText = '';
+    }
+    document.getElementById('sortIcon'+col).innerText = dir === 'asc' ? '▲' : '▼';
+    // Set hidden fields for all forms
+    document.querySelectorAll('.inventory-update-form input[name="sort_col"]').forEach(e => e.value = col);
+    document.querySelectorAll('.inventory-update-form input[name="sort_dir"]').forEach(e => e.value = dir);
+    // Set sortDir so next click will toggle
+    sortDir[col] = (dir === 'asc') ? false : true;
+  }
+});
 // Inline delete confirmation logic
 let lastConfirmId = null;
 function showDeleteConfirm(invId) {

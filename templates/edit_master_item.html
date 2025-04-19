@@ -13,6 +13,8 @@
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
   </div>
 {% endif %}
+
+<!-- Edit Item Form -->
 <form method="post">
   <div class="mb-3">
     <label for="item-name" class="form-label">Item Name</label>
@@ -20,7 +22,7 @@
   </div>
   <div class="mb-3">
     <label for="aisle_id" class="form-label">Aisle</label>
-    <select class="form-select" id="aisle_id" name="aisle_id" required>
+    <select class="form-select" id="aisle_id" name="aisle_id">
       <option value="">Select Aisle</option>
       {% for aisle in aisles %}
         <option value="{{ aisle.id }}" {% if item.aisle and item.aisle.id == aisle.id %}selected{% endif %}>{{ aisle.name }}</option>
@@ -31,23 +33,36 @@
     <label for="notes" class="form-label">Notes</label>
     <textarea class="form-control" id="notes" name="notes" rows="2">{{ item.notes or '' }}</textarea>
   </div>
-  <div class="mb-3">
-    <label class="form-label">Stores</label>
-    <div class="chips">
-      {% for store in item.stores %}
-        <span class="chip">{{ store.name }} <span class="chip-remove" onclick="removeStore({{ store.id }})">&times;</span></span>
-      {% endfor %}
-      <select id="add-store-select" class="form-select d-inline w-auto" name="add_store_id">
+  <div class="btn-row mt-4">
+    <button class="btn btn-primary" type="submit">Save Changes</button>
+  </div>
+</form>
+
+<!-- Store Chips and Add Store -->
+<div class="mb-3">
+  <label class="form-label">Stores</label>
+  <div class="chips">
+    {% for store in item.stores %}
+      <span class="chip">{{ store.name }}
+        <form method="post" action="{{ url_for('web_remove_store_from_item', item_id=item.id, store_id=store.id) }}" style="display:inline">
+          <button type="submit" class="chip-remove" style="border:none;background:transparent;padding:0;margin-left:4px;cursor:pointer;" title="Remove">&times;</button>
+        </form>
+      </span>
+    {% endfor %}
+    <form method="post" style="display:inline">
+      <select id="add-store-select" class="form-select d-inline w-auto" name="add_store_id" onchange="this.form.submit()">
         <option value="">+ Add Store</option>
         {% for store in stores if store not in item.stores %}
           <option value="{{ store.id }}">{{ store.name }}</option>
         {% endfor %}
       </select>
-    </div>
+    </form>
   </div>
-  <div class="btn-row mt-4">
-    <button class="btn btn-primary" type="submit">Save Changes</button>
-    <a class="btn btn-outline-danger ms-2" href="#" onclick="return confirm('Delete not implemented yet')">Delete Item</a>
-  </div>
+</div>
+
+<!-- Delete Item Button -->
+<form method="post" action="{{ url_for('web_delete_master_item', item_id=item.id) }}" onsubmit="return confirm('Are you sure you want to delete this item? This cannot be undone.');">
+  <input type="hidden" name="delete_item" value="1">
+  <button class="btn btn-outline-danger ms-2" type="submit">Delete Item</button>
 </form>
 {% endblock %}

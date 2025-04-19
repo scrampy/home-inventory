@@ -168,6 +168,9 @@ def get_master_items():
 @app.route('/master-items', methods=['POST'])
 def create_master_item():
     json_data = request.get_json()
+    name = json_data.get('name') if json_data else None
+    if not name or not name.strip():
+        return jsonify({'error': 'Item name cannot be blank.'}), 400
     try:
         item = master_item_schema.load(json_data, session=db.session)
     except ValidationError as err:
@@ -321,7 +324,9 @@ def web_locations():
     confirmation = None
     if request.method == 'POST':
         name = request.form.get('name')
-        if name:
+        if not name or not name.strip():
+            error = "Location name cannot be blank."
+        else:
             norm_name = name.strip().title()
             loc = Location(name=norm_name)
             db.session.add(loc)
@@ -357,7 +362,9 @@ def web_master_items():
         name = request.form.get('name')
         aisle_id = request.form.get('aisle_id')
         notes = request.form.get('notes')
-        if name:
+        if not name or not name.strip():
+            error = "Item name cannot be blank."
+        else:
             norm_name = name.strip().title()
             item = MasterItem(name=norm_name, aisle_id=aisle_id, notes=notes)
             db.session.add(item)
@@ -375,27 +382,40 @@ def web_master_items():
 @app.route('/web/master-items/edit/<int:item_id>', methods=['GET', 'POST'])
 def web_edit_master_item(item_id):
     item = MasterItem.query.get_or_404(item_id)
-    locations = Location.query.order_by(Location.name).all()
     stores = Store.query.order_by(Store.name).all()
     aisles = Aisle.query.order_by(Aisle.name).all()
     confirmation = None
     error = None
     if request.method == 'POST':
-        name = request.form.get('name', '').strip().title()
-        aisle_id = request.form.get('aisle_id')
-        notes = request.form.get('notes', '').strip()
+        # Handle delete item
+        if request.form.get('delete_item') == '1':
+            item_name = item.name
+            db.session.delete(item)
+            db.session.commit()
+            confirmation = f"Item '{item_name}' deleted."
+            return redirect(url_for('web_master_items', confirmation=confirmation))
+        # Add store only (from store add form)
         add_store_id = request.form.get('add_store_id')
-        # Update fields
-        item.name = name
-        item.aisle_id = aisle_id
-        item.notes = notes
-        # Add store association
-        if add_store_id:
+        if add_store_id and not request.form.get('name'):
+            # Only add store, don't touch name/aisle/notes
             store = Store.query.get(int(add_store_id))
             if store and store not in item.stores:
                 item.stores.append(store)
-        # Remove store association (if implemented via JS in future)
-        # ...
+                db.session.commit()
+                confirmation = f"Added store '{store.name}' to item."
+            return redirect(url_for('web_edit_master_item', item_id=item.id, confirmation=confirmation))
+        # Main edit form
+        name = request.form.get('name')
+        if not name or not name.strip():
+            error = "Item name cannot be blank."
+            return redirect(url_for('web_edit_master_item', item_id=item.id, error=error))
+        name = name.strip().title()
+        aisle_id = request.form.get('aisle_id')
+        notes = request.form.get('notes', '').strip()
+        # Update fields
+        item.name = name
+        item.aisle_id = int(aisle_id) if aisle_id else None
+        item.notes = notes
         try:
             db.session.commit()
             confirmation = "Changes saved."
@@ -405,34 +425,93 @@ def web_edit_master_item(item_id):
         return redirect(url_for('web_edit_master_item', item_id=item.id, confirmation=confirmation, error=error))
     confirmation = request.args.get('confirmation')
     error = request.args.get('error')
-    return render_template('edit_master_item.html', item=item, locations=locations, stores=stores, aisles=aisles, confirmation=confirmation, error=error)
+    return render_template('edit_master_item.html', item=item, stores=stores, aisles=aisles, confirmation=confirmation, error=error)
+
+@app.route('/web/master-items/delete/<int:item_id>', methods=['POST'])
+def web_delete_master_item(item_id):
+    item = MasterItem.query.get_or_404(item_id)
+    item_name = item.name
+    db.session.delete(item)
+    db.session.commit()
+    confirmation = f"Item '{item_name}' deleted."
+    return redirect(url_for('web_master_items', confirmation=confirmation))
+
+@app.route('/web/master-items/remove-store/<int:item_id>/<int:store_id>', methods=['POST'])
+def web_remove_store_from_item(item_id, store_id):
+    item = MasterItem.query.get_or_404(item_id)
+    store = Store.query.get_or_404(store_id)
+    item_name = item.name
+    store_name = store.name
+    if store in item.stores:
+        item.stores.remove(store)
+        db.session.commit()
+    # Re-fetch item to ensure UI reflects change
+    confirmation = f"Removed '{item_name}' from store '{store_name}'."
+    return redirect(url_for('web_edit_master_item', item_id=item.id, confirmation=confirmation))
 
 @app.route('/web/inventory', methods=['GET', 'POST'])
 def web_inventory():
     locations = Location.query.order_by(Location.name).all()
-    location_id = request.args.get('location_id', type=int)
-    # Default to first alphabetical location if none selected
-    if not location_id and locations:
-        return redirect(url_for('web_inventory', location_id=locations[0].id))
+    location_id = request.args.get('location_id', type=int) or request.form.get('location_id', type=int)
+    # Sorting
+    sort_col = request.args.get('sort_col') or request.form.get('sort_col')
+    sort_dir = request.args.get('sort_dir') or request.form.get('sort_dir')
+    confirmation = request.args.get('confirmation')
+    error = request.args.get('error')
+    if request.method == 'POST':
+        master_item_id = request.form.get('master_item_id', type=int)
+        quantity = request.form.get('quantity', type=float)
+        if not (location_id and master_item_id and quantity is not None):
+            error = 'Please select an item and specify a quantity.'
+        else:
+            inv = Inventory.query.filter_by(location_id=location_id, master_item_id=master_item_id).first()
+            if inv:
+                inv.quantity = quantity
+                inv.last_updated = datetime.utcnow()
+                confirmation = f"Updated {inv.master_item.name} in inventory."
+            else:
+                new_inv = Inventory(location_id=location_id, master_item_id=master_item_id, quantity=quantity, last_updated=datetime.utcnow())
+                db.session.add(new_inv)
+                confirmation = "Item added to inventory."
+            db.session.commit()
+        # Redirect to avoid form re-submission
+        return redirect(url_for('web_inventory', location_id=location_id, confirmation=confirmation, error=error, sort_col=sort_col, sort_dir=sort_dir))
+    # GET logic
     selected_location = None
     inventory = []
     items = []
-    confirmation = request.args.get('confirmation')
-    error = request.args.get('error')
     if location_id:
         selected_location = Location.query.get(location_id)
-        inventory = Inventory.query.filter_by(location_id=location_id).all()
-        # Only show items not already in inventory for this location
+        inventory_query = Inventory.query.filter_by(location_id=location_id)
+        # Sorting logic
+        if sort_col == '1':  # quantity
+            if sort_dir == 'desc':
+                inventory_query = inventory_query.order_by(Inventory.quantity.desc())
+            else:
+                inventory_query = inventory_query.order_by(Inventory.quantity)
+        elif sort_col == '2':  # last_updated
+            if sort_dir == 'desc':
+                inventory_query = inventory_query.order_by(Inventory.last_updated.desc())
+            else:
+                inventory_query = inventory_query.order_by(Inventory.last_updated)
+        else:  # item name (default)
+            if sort_dir == 'desc':
+                inventory_query = inventory_query.join(MasterItem).order_by(MasterItem.name.desc())
+            else:
+                inventory_query = inventory_query.join(MasterItem).order_by(MasterItem.name)
+        inventory = inventory_query.all()
         inventory_item_ids = {inv.master_item_id for inv in inventory}
         items = MasterItem.query.filter(~MasterItem.id.in_(inventory_item_ids)).order_by(MasterItem.name).all()
     else:
         items = MasterItem.query.order_by(MasterItem.name).all()
-    return render_template('inventory.html', locations=locations, inventory=inventory, selected_location=selected_location, selected_location_id=location_id, items=items, confirmation=confirmation, error=error)
+    return render_template('inventory.html', locations=locations, inventory=inventory, selected_location=selected_location, selected_location_id=location_id, items=items, confirmation=confirmation, error=error, sort_col=sort_col, sort_dir=sort_dir)
 
 @app.route('/web/inventory/update/<int:inv_id>', methods=['POST'])
 def web_update_inventory(inv_id):
     inv = Inventory.query.get_or_404(inv_id)
     qty = request.form.get('quantity')
+    sort_col = request.form.get('sort_col')
+    sort_dir = request.form.get('sort_dir')
     try:
         quantity = float(qty)
         if quantity < 0:
@@ -442,7 +521,7 @@ def web_update_inventory(inv_id):
     inv.quantity = quantity
     inv.last_updated = datetime.utcnow()
     db.session.commit()
-    return redirect(url_for('web_inventory', location_id=inv.location_id))
+    return redirect(url_for('web_inventory', location_id=inv.location_id, sort_col=sort_col, sort_dir=sort_dir))
 
 @app.route('/web/inventory/delete/<int:inv_id>', methods=['POST'])
 def web_delete_inventory(inv_id):
@@ -468,7 +547,9 @@ def web_stores():
     confirmation = None
     if request.method == 'POST':
         name = request.form.get('name')
-        if name:
+        if not name or not name.strip():
+            error = "Store name cannot be blank."
+        else:
             norm_name = name.strip().title()
             store = Store(name=norm_name)
             db.session.add(store)
