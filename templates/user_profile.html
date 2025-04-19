@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <div class="card mt-4">
+      <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">User Profile</h4>
+      </div>
+      <div class="card-body">
+        <p><strong>Email:</strong> {{ user.email }}</p>
+        <p><strong>User ID:</strong> {{ user.id }}</p>
+        {% if family %}
+          <p><strong>Family:</strong> {{ family.name }} (ID: {{ family.id }})</p>
+        {% else %}
+          <p class="text-warning">You are not currently in a family.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

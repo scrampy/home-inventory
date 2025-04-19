@@ -1,0 +1,138 @@
+App Feature Specification: Family-Based User Model
+--------------------------------------------------
+
+1. Authentication System Options
+--------------------------------
+Choose one of the following:
+
+Option A: Django AllAuth
+- Type: Full-featured
+- Pros: Mature, long-term OSS support, supports password + email + social login
+- Library: django-allauth
+
+Option B: Flask-Login + Flask-Mail
+- Type: Lightweight
+- Pros: Simple to integrate, easy to customize, plays well with SQLite
+- Libraries: flask-login, flask-mail
+
+Option C: Magic Link Authentication (Custom)
+- Type: Passwordless
+- Pros: Very simple for users, no passwords to store
+- Libraries: itsdangerous or custom implementation using email + signed tokens
+
+Recommended: Option B — Flask-Login + Flask-Mail with optional magic link integration for a balanced setup.
+
+2. Database Model (SQLite)
+---------------------------
+users
+- id INTEGER PRIMARY KEY
+- email TEXT UNIQUE NOT NULL
+- password_hash TEXT (nullable if magic link only)
+- created_at DATETIME
+- is_active BOOLEAN
+- is_verified BOOLEAN
+
+families
+- id INTEGER PRIMARY KEY
+- name TEXT NOT NULL
+- created_by_user_id INTEGER REFERENCES users(id)
+
+family_members
+- id INTEGER PRIMARY KEY
+- user_id INTEGER REFERENCES users(id)
+- family_id INTEGER REFERENCES families(id)
+- role TEXT CHECK(role IN ('admin', 'member')) DEFAULT 'member'
+- joined_at DATETIME
+
+invitations
+- id INTEGER PRIMARY KEY
+- email TEXT
+- token TEXT
+- family_id INTEGER REFERENCES families(id)
+- invited_by_user_id INTEGER REFERENCES users(id)
+- status TEXT CHECK(status IN ('pending', 'accepted', 'expired')) DEFAULT 'pending'
+- created_at DATETIME
+- expires_at DATETIME
+
+3. Workflow Logic
+------------------
+
+Signup (no invite)
+- User signs up via email/password (or magic link)
+- They may create a family
+- They become the family admin
+
+Invite Flow
+- Admin invites user via email
+- System creates a signed token and stores it in invitations
+- User receives email: https://yourapp.com/invite/accept?token=abc123
+- Visiting the link leads to account registration or magic link login
+- Once validated, user is added to the inviting family
+
+Permissions
+
+Action                   | Admin | Member
+------------------------|-------|--------
+View/edit family data   | ✅    | ✅
+Invite/remove members   | ✅    | ❌
+Promote to admin        | ✅    | ❌
+
+4. API / Web Endpoints
+-----------------------
+- POST /signup
+  For new user account + optional family creation
+
+- POST /login
+  Traditional login
+
+- POST /magic-link
+  Sends magic login link to email
+
+- GET /invite/accept?token=abc123
+  Invitation acceptance + registration
+
+- POST /invite
+  Send invitation to email (admin only)
+
+- POST /family/{id}/members/{user_id}/promote
+  Promote another member to admin (admin only)
+
+5. SQLite Notes
+---------------
+- Enable foreign keys: PRAGMA foreign_keys = ON
+- Add indexes on user_id, family_id fields
+- Use alembic or raw SQL for migrations
+
+6. Implementation Notes for AI Code Assistant
+---------------------------------------------
+- Use Flask + SQLAlchemy or raw SQL
+- Use itsdangerous for secure token generation
+- Magic link = signed token containing email + expiration
+- Ensure token is single-use or expires after X mins
+- Protect endpoints based on family_members.role
+
+7. Implementation To-Do (Test-Driven)
+-------------------------------------
+
+- [ ] 1. Add new SQLAlchemy models for users, families, family_members, invitations (no app logic yet)
+      - Write unit tests to verify tables are created and relationships are valid.
+- [ ] 2. Integrate Flask-Login and Flask-Mail, add user registration/login/logout (do not require login for existing features)
+      - Write unit tests for registration, login, logout flows
+- [ ] 3. Implement user email verification (optional, but recommended)
+      - Write unit tests for verification email sending and token validation
+- [ ] 4. Add family creation: allow logged-in user to create a family, become admin
+      - Write unit tests for family creation and admin assignment
+- [ ] 5. Implement family membership: join/leave/view families
+      - Write unit tests for membership logic
+- [ ] 6. Add invitation system: admin can invite users, store invitations, send emails
+      - Write unit tests for invitation creation, email, and acceptance
+- [ ] 7. Associate inventory data with families (update models and queries)
+      - Write unit tests to ensure users only see their family’s data
+- [ ] 8. Require authentication for inventory management (make login required for inventory routes)
+      - Write unit tests for access control
+- [ ] 9. Enforce admin/member roles for permissions (invite/remove/promote)
+      - Write unit tests for role-based access
+- [ ] 10. Final polish: error handling, UX review, documentation
+      - Write integration tests for all flows
+
+**Test-Driven Principle:** Each step must include real, executable unit tests (no fakes or stubs) and must pass all tests before proceeding to the next step.

@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <ul class="nav nav-tabs mb-3" id="authTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Login</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup" type="button" role="tab">Sign Up</button>
+      </li>
+    </ul>
+    <div class="tab-content" id="authTabsContent">
+      <div class="tab-pane fade show active" id="login" role="tabpanel">
+        <form id="loginForm" method="post">
+          <div class="mb-3">
+            <label for="loginEmail" class="form-label">Email</label>
+            <input type="email" class="form-control" id="loginEmail" name="email" required>
+          </div>
+          <div class="mb-3">
+            <label for="loginPassword" class="form-label">Password</label>
+            <input type="password" class="form-control" id="loginPassword" name="password" required>
+          </div>
+          <button class="btn btn-primary w-100" type="submit">Login</button>
+          <div id="loginError" class="alert alert-danger mt-3 d-none"></div>
+        </form>
+      </div>
+      <div class="tab-pane fade" id="signup" role="tabpanel">
+        <form id="signupForm" method="post">
+          <div class="mb-3">
+            <label for="signupEmail" class="form-label">Email</label>
+            <input type="email" class="form-control" id="signupEmail" name="email" required>
+          </div>
+          <div class="mb-3">
+            <label for="signupPassword" class="form-label">Password</label>
+            <input type="password" class="form-control" id="signupPassword" name="password" required>
+          </div>
+          <div class="mb-3">
+            <label for="signupFamily" class="form-label">Family Name <small class="text-muted">(optional, to create a new family)</small></label>
+            <input type="text" class="form-control" id="signupFamily" name="family_name">
+          </div>
+          <div class="mb-3">
+            <label for="signupInvite" class="form-label">Invitation Token <small class="text-muted">(optional, if joining by invite)</small></label>
+            <input type="text" class="form-control" id="signupInvite" name="invite_token">
+          </div>
+          <button class="btn btn-success w-100" type="submit">Sign Up</button>
+          <div id="signupError" class="alert alert-danger mt-3 d-none"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const loginForm = document.getElementById('loginForm');
+const signupForm = document.getElementById('signupForm');
+loginForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const email = loginForm.email.value;
+  const password = loginForm.password.value;
+  const resp = await fetch('/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email, password})
+  });
+  if (resp.ok) {
+    window.location = '/family';
+  } else {
+    const data = await resp.json();
+    document.getElementById('loginError').textContent = data.error;
+    document.getElementById('loginError').classList.remove('d-none');
+  }
+};
+signupForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const email = signupForm.email.value;
+  const password = signupForm.password.value;
+  const family_name = signupForm.family_name.value;
+  const invite_token = signupForm.invite_token.value;
+  const payload = {email, password};
+  if (family_name) payload.family_name = family_name;
+  if (invite_token) payload.invite_token = invite_token;
+  const resp = await fetch('/signup', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  if (resp.ok) {
+    window.location = '/family';
+  } else {
+    const data = await resp.json();
+    document.getElementById('signupError').textContent = data.error;
+    document.getElementById('signupError').classList.remove('d-none');
+  }
+};
+</script>
+{% endblock %}

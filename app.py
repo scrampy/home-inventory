@@ -4,12 +4,39 @@ from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError, Schema, fields
 from datetime import datetime
 import random
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user, UserMixin
+from flask_mail import Mail, Message
+from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import URLSafeTimedSerializer
+import os
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///homeinventory.db'
+app.config['SECRET_KEY'] = 'secret_key_here'
+# Use persistent DB for normal app, special test DB for E2E, in-memory for unit tests
+if os.environ.get('E2E_TEST') == '1':
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
+else:
+    db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance', 'homeinventory.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECURITY_PASSWORD_SALT'] = 'change_this_salt'
+
+# --- Flask-Mail Setup ---
+app.config['MAIL_SERVER'] = 'localhost'  # Change to real SMTP for production
+app.config['MAIL_PORT'] = 8025           # Dummy port for local dev
+app.config['MAIL_DEFAULT_SENDER'] = 'noreply@localhost'
+app.config['MAIL_SUPPRESS_SEND'] = True  # Suppress sending in tests
 
 db = SQLAlchemy(app)
+mail = Mail(app)
+
+# Token serializer for invitations
+serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+# --- Flask-Login Setup ---
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
 
 # Models
 class Location(db.Model):
@@ -64,6 +91,55 @@ item_stores = db.Table('item_stores',
     db.Column('item_id', db.Integer, db.ForeignKey('master_item.id'), primary_key=True),
     db.Column('store_id', db.Integer, db.ForeignKey('store.id'), primary_key=True)
 )
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'user'
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(128), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.now())
+    is_active = db.Column(db.Boolean, default=True)
+    is_verified = db.Column(db.Boolean, default=False)
+    families_created = db.relationship('Family', back_populates='creator', foreign_keys='Family.created_by_user_id')
+    memberships = db.relationship('FamilyMember', back_populates='user')
+    invitations_sent = db.relationship('Invitation', back_populates='inviter', foreign_keys='Invitation.invited_by_user_id')
+
+    def get_id(self):
+        return str(self.id)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+class Family(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128), nullable=False)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_at = db.Column(db.DateTime, default=db.func.now())
+    creator = db.relationship('User', back_populates='families_created', foreign_keys=[created_by_user_id])
+    members = db.relationship('FamilyMember', back_populates='family')
+    invitations = db.relationship('Invitation', back_populates='family')
+
+class FamilyMember(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    family_id = db.Column(db.Integer, db.ForeignKey('family.id'))
+    role = db.Column(db.String(16), default='member')
+    joined_at = db.Column(db.DateTime, default=db.func.now())
+    user = db.relationship('User', back_populates='memberships')
+    family = db.relationship('Family', back_populates='members')
+
+class Invitation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(128), nullable=False)
+    token = db.Column(db.String(256), nullable=False)
+    family_id = db.Column(db.Integer, db.ForeignKey('family.id'))
+    invited_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    status = db.Column(db.String(16), default='pending')
+    created_at = db.Column(db.DateTime, default=db.func.now())
+    expires_at = db.Column(db.DateTime)
+    family = db.relationship('Family', back_populates='invitations')
+    inviter = db.relationship('User', back_populates='invitations_sent', foreign_keys=[invited_by_user_id])
 
 # Schemas (plain Marshmallow)
 class LocationSchema(Schema):
@@ -135,9 +211,9 @@ def get_locations():
 def create_location():
     json_data = request.get_json()
     try:
-        loc = location_schema.load(json_data, session=db.session)
-    except ValidationError as err:
-        return jsonify(err.messages), 400
+        loc = Location(**json_data)
+    except TypeError as err:
+        return jsonify({'error': 'Invalid JSON'}), 400
     db.session.add(loc)
     db.session.commit()
     return jsonify(location_schema.dump(loc)), 201
@@ -152,9 +228,9 @@ def get_aisles():
 def create_aisle():
     json_data = request.get_json()
     try:
-        aisle = aisle_schema.load(json_data, session=db.session)
-    except ValidationError as err:
-        return jsonify(err.messages), 400
+        aisle = Aisle(**json_data)
+    except TypeError as err:
+        return jsonify({'error': 'Invalid JSON'}), 400
     db.session.add(aisle)
     db.session.commit()
     return jsonify(aisle_schema.dump(aisle)), 201
@@ -172,9 +248,9 @@ def create_master_item():
     if not name or not name.strip():
         return jsonify({'error': 'Item name cannot be blank.'}), 400
     try:
-        item = master_item_schema.load(json_data, session=db.session)
-    except ValidationError as err:
-        return jsonify(err.messages), 400
+        item = MasterItem(**json_data)
+    except TypeError as err:
+        return jsonify({'error': 'Invalid JSON'}), 400
     db.session.add(item)
     db.session.commit()
     return jsonify(master_item_schema.dump(item)), 201
@@ -189,9 +265,9 @@ def get_stores():
 def create_store():
     json_data = request.get_json()
     try:
-        store = store_schema.load(json_data, session=db.session)
-    except ValidationError as err:
-        return jsonify(err.messages), 400
+        store = Store(**json_data)
+    except TypeError as err:
+        return jsonify({'error': 'Invalid JSON'}), 400
     db.session.add(store)
     db.session.commit()
     return jsonify(store_schema.dump(store)), 201
@@ -206,9 +282,9 @@ def get_inventory():
 def create_inventory():
     json_data = request.get_json()
     try:
-        inv = inventory_schema.load(json_data, session=db.session)
-    except ValidationError as err:
-        return jsonify(err.messages), 400
+        inv = Inventory(**json_data)
+    except TypeError as err:
+        return jsonify({'error': 'Invalid JSON'}), 400
     db.session.add(inv)
     db.session.commit()
     return jsonify(inventory_schema.dump(inv)), 201
@@ -239,9 +315,9 @@ def get_shopping_list():
 def create_shopping_list_item():
     json_data = request.get_json()
     try:
-        item = shopping_list_item_schema.load(json_data, session=db.session)
-    except ValidationError as err:
-        return jsonify(err.messages), 400
+        item = ShoppingListItem(**json_data)
+    except TypeError as err:
+        return jsonify({'error': 'Invalid JSON'}), 400
     db.session.add(item)
     db.session.commit()
     return jsonify(shopping_list_item_schema.dump(item)), 201
@@ -313,8 +389,123 @@ def seed_stores():
     db.session.commit()
     return 'Stores seeded.'
 
+# User endpoints
+@app.route('/signup', methods=['POST'])
+def signup():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    family_name = data.get('family_name')
+    invite_token = data.get('invite_token')
+    if not email or not password:
+        return jsonify({'error': 'Email and password required'}), 400
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'Email already registered'}), 400
+    pw_hash = generate_password_hash(password)
+    user = User(email=email, password_hash=pw_hash)
+    db.session.add(user)
+    db.session.flush()  # to get user.id
+    # Handle family creation or invitation acceptance
+    if invite_token:
+        try:
+            invite_data = serializer.loads(invite_token, max_age=86400)
+            invitation = Invitation.query.filter_by(token=invite_token, status='pending').first()
+            if not invitation or invitation.email != email:
+                return jsonify({'error': 'Invalid or expired invitation.'}), 400
+            # Accept invitation: add user to family
+            fam_member = FamilyMember(user_id=user.id, family_id=invitation.family_id, role='member')
+            invitation.status = 'accepted'
+            db.session.add(fam_member)
+        except Exception as e:
+            return jsonify({'error': 'Invalid or expired invitation.'}), 400
+    elif family_name:
+        # Create new family, make user admin
+        family = Family(name=family_name, created_by_user_id=user.id)
+        db.session.add(family)
+        db.session.flush()
+        fam_member = FamilyMember(user_id=user.id, family_id=family.id, role='admin')
+        db.session.add(fam_member)
+    db.session.commit()
+    login_user(user)
+    return jsonify({'success': True, 'user_id': user.id})
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    user = User.query.filter_by(email=email).first()
+    if not user or not check_password_hash(user.password_hash, password):
+        return jsonify({'error': 'Invalid credentials'}), 401
+    login_user(user)
+    return jsonify({'success': True, 'user_id': user.id})
+
+@app.route('/logout', methods=['POST'])
+@login_required
+def logout():
+    logout_user()
+    return jsonify({'success': True})
+
+@app.route('/invite', methods=['POST'])
+@login_required
+def invite():
+    fam_member = FamilyMember.query.filter_by(user_id=current_user.id).first()
+    if not fam_member or fam_member.role != 'admin':
+        return jsonify({'error': 'Only admins can invite.'}), 403
+    data = request.get_json()
+    email = data.get('email')
+    family_id = data.get('family_id', fam_member.family_id)
+    if not email:
+        return jsonify({'error': 'Email required.'}), 400
+    # Generate token
+    token = serializer.dumps(email, salt='invite')
+    # Store invitation
+    inv = Invitation(email=email, family_id=family_id, token=token)
+    db.session.add(inv)
+    db.session.commit()
+    # Send email or display token for E2E
+    resp = {'invite_token': token, 'msg': 'Invitation sent!'}
+    if app.config.get('TESTING') or os.environ.get('E2E_TEST') == '1':
+        resp['test_display'] = f'Token: {token}'
+    return jsonify(resp)
+
+@app.route('/invite/accept', methods=['GET'])
+def invite_accept():
+    token = request.args.get('token')
+    try:
+        invite_data = serializer.loads(token, max_age=86400)
+        invitation = Invitation.query.filter_by(token=token, status='pending').first()
+        if not invitation:
+            return jsonify({'error': 'Invalid or expired invitation.'}), 400
+        return jsonify({'email': invitation.email, 'family_id': invitation.family_id, 'token': token})
+    except Exception:
+        return jsonify({'error': 'Invalid or expired invitation.'}), 400
+
+@app.route('/family/<int:family_id>/role', methods=['POST'])
+@login_required
+def change_family_role(family_id):
+    fam_member = FamilyMember.query.filter_by(user_id=current_user.id, family_id=family_id).first()
+    if not fam_member or fam_member.role != 'admin':
+        return jsonify({'error': 'Only family admin can change roles.'}), 403
+    data = request.get_json()
+    user_id = data.get('user_id')
+    new_role = data.get('role')
+    if user_id is None or new_role not in ('admin', 'member'):
+        return jsonify({'error': 'Invalid input.'}), 400
+    target_member = FamilyMember.query.filter_by(user_id=user_id, family_id=family_id).first()
+    if not target_member:
+        return jsonify({'error': 'User not in family.'}), 404
+    # Prevent last admin demotion
+    if target_member.user_id == current_user.id and fam_member.role == 'admin' and new_role == 'member':
+        admin_count = FamilyMember.query.filter_by(family_id=family_id, role='admin').count()
+        if admin_count <= 1:
+            return jsonify({'error': 'There must be at least one admin in the family.'}), 400
+    target_member.role = new_role
+    db.session.commit()
+    return jsonify({'success': True, 'user_id': user_id, 'role': new_role})
+
 # Web interface routes
-@app.route('/', methods=['GET'])
+@app.route('/')
 def index():
     return redirect(url_for('web_locations'))
 
@@ -650,6 +841,36 @@ def web_delete_shopping_list_item(sli_id):
     db.session.delete(sli)
     db.session.commit()
     return redirect(request.referrer or url_for('web_shopping_list'))
+
+@app.route('/auth')
+def auth_page():
+    return render_template('auth.html')
+
+@app.route('/family')
+@login_required
+def family_dashboard():
+    fam_member = FamilyMember.query.filter_by(user_id=current_user.id).first()
+    if fam_member:
+        family = Family.query.get(fam_member.family_id)
+        members = FamilyMember.query.filter_by(family_id=family.id).all()
+        for m in members:
+            m.user = User.query.get(m.user_id)
+        current_user_role = fam_member.role
+        admin_count = FamilyMember.query.filter_by(family_id=family.id, role='admin').count()
+        return render_template('family.html', family=family, members=members, current_user_role=current_user_role, admin_count=admin_count)
+    return render_template('family.html', family=None, members=None, current_user_role=None, admin_count=0)
+
+@app.route('/logout', methods=['GET'])
+def logout_redirect():
+    # Convenience: GET /logout redirects to /auth after POST logout
+    return render_template('auth.html')
+
+@app.route('/user/profile')
+@login_required
+def user_profile():
+    fam_member = FamilyMember.query.filter_by(user_id=current_user.id).first()
+    family = fam_member.family if fam_member else None
+    return render_template('user_profile.html', user=current_user, family=family)
 
 if __name__ == '__main__':
     app.run(debug=True)
