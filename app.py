@@ -25,20 +25,26 @@ class MasterItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), unique=True, nullable=False)
     default_unit = db.Column(db.String(64), nullable=True)
-    aisle_id = db.Column(db.Integer, db.ForeignKey('aisle.id'))
+    aisle_id = db.Column(db.Integer, db.ForeignKey('aisle.id'), nullable=True)
     aisle = db.relationship('Aisle', back_populates='items')
     notes = db.Column(db.String(200))
     stores = db.relationship('Store', secondary='item_stores', back_populates='items')
+    shopping_list_items = db.relationship('ShoppingListItem', back_populates='item')
 
 class Store(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
     items = db.relationship('MasterItem', secondary='item_stores', back_populates='stores')
 
-item_stores = db.Table('item_stores',
-    db.Column('item_id', db.Integer, db.ForeignKey('master_item.id'), primary_key=True),
-    db.Column('store_id', db.Integer, db.ForeignKey('store.id'), primary_key=True)
-)
+class ShoppingListItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('master_item.id'), nullable=False)
+    checked = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.now())
+
+    item = db.relationship('MasterItem', back_populates='shopping_list_items')
+
+    __table_args__ = (db.UniqueConstraint('item_id', name='_item_uc'),)
 
 class Inventory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -54,6 +60,11 @@ class Inventory(db.Model):
         db.UniqueConstraint('location_id', 'master_item_id', name='_location_item_uc'),
     )
 
+item_stores = db.Table('item_stores',
+    db.Column('item_id', db.Integer, db.ForeignKey('master_item.id'), primary_key=True),
+    db.Column('store_id', db.Integer, db.ForeignKey('store.id'), primary_key=True)
+)
+
 # Schemas (plain Marshmallow)
 class LocationSchema(Schema):
     id = fields.Int(dump_only=True)
@@ -68,6 +79,7 @@ class MasterItemSchema(Schema):
     name = fields.Str(required=True)
     default_unit = fields.Str(allow_none=True)
     aisle = fields.Nested('AisleSchema', dump_only=True)
+    aisle_id = fields.Int(allow_none=True)
     notes = fields.Str(allow_none=True)
     stores = fields.Nested('StoreSchema', many=True, dump_only=True)
 
@@ -85,6 +97,12 @@ class InventorySchema(Schema):
     location = fields.Nested(LocationSchema, dump_only=True)
     master_item = fields.Nested(MasterItemSchema, dump_only=True)
 
+class ShoppingListItemSchema(Schema):
+    id = fields.Int(dump_only=True)
+    item = fields.Nested('MasterItemSchema', dump_only=True)
+    checked = fields.Bool()
+    created_at = fields.DateTime()
+
 location_schema = LocationSchema()
 locations_schema = LocationSchema(many=True)
 aisle_schema = AisleSchema()
@@ -95,6 +113,8 @@ store_schema = StoreSchema()
 stores_schema = StoreSchema(many=True)
 inventory_schema = InventorySchema()
 inventories_schema = InventorySchema(many=True)
+shopping_list_item_schema = ShoppingListItemSchema()
+shopping_list_items_schema = ShoppingListItemSchema(many=True)
 
 # Ensure tables exist before first request
 tables_created = False
@@ -206,6 +226,23 @@ def update_inventory(inv_id):
     db.session.commit()
     return jsonify(inventory_schema.dump(inv))
 
+# Shopping List endpoints
+@app.route('/shopping-list', methods=['GET'])
+def get_shopping_list():
+    items = ShoppingListItem.query.all()
+    return jsonify(shopping_list_items_schema.dump(items))
+
+@app.route('/shopping-list', methods=['POST'])
+def create_shopping_list_item():
+    json_data = request.get_json()
+    try:
+        item = shopping_list_item_schema.load(json_data, session=db.session)
+    except ValidationError as err:
+        return jsonify(err.messages), 400
+    db.session.add(item)
+    db.session.commit()
+    return jsonify(shopping_list_item_schema.dump(item)), 201
+
 # SEED DATA ROUTE
 @app.route('/seed')
 def seed():
@@ -250,6 +287,18 @@ def seed():
         loc = random.choice(all_locations)
         qty = random.randint(0, 5)
         db.session.add(Inventory(location_id=loc.id, master_item_id=item.id, quantity=qty))
+    db.session.commit()
+
+    # Seed demo shopping list items
+    milk = MasterItem.query.filter_by(name='Milk').first()
+    bread = MasterItem.query.filter_by(name='Bread').first()
+    store = Store.query.filter_by(name='Kroger').first()
+    if milk and not ShoppingListItem.query.filter_by(item_id=milk.id).first():
+        sli = ShoppingListItem(item_id=milk.id, checked=False)
+        db.session.add(sli)
+    if bread and not ShoppingListItem.query.filter_by(item_id=bread.id).first():
+        sli2 = ShoppingListItem(item_id=bread.id, checked=True)
+        db.session.add(sli2)
     db.session.commit()
     return 'Database seeded!', 201
 
@@ -360,61 +409,25 @@ def web_edit_master_item(item_id):
 
 @app.route('/web/inventory', methods=['GET', 'POST'])
 def web_inventory():
-    locations = Location.query.all()
+    locations = Location.query.order_by(Location.name).all()
+    location_id = request.args.get('location_id', type=int)
+    # Default to first alphabetical location if none selected
+    if not location_id and locations:
+        return redirect(url_for('web_inventory', location_id=locations[0].id))
     selected_location = None
     inventory = []
-    confirmation = None
-    error = None
-    loc_param = request.args.get('location_id', type=int)
-
-    if request.method == 'POST':
-        loc_id = request.form.get('location_id')
-        item_id = request.form.get('master_item_id')
-        qty = request.form.get('quantity')
-        try:
-            quantity = int(qty)
-            if quantity < 0:
-                raise ValueError
-        except:
-            # Invalid quantity, stay on same page
-            return redirect(url_for('web_inventory', location_id=loc_id))
-        if loc_id and item_id:
-            existing = Inventory.query.filter_by(location_id=loc_id, master_item_id=item_id).first()
-            item_obj = MasterItem.query.get(item_id)
-            loc_obj = Location.query.get(loc_id)
-            try:
-                if existing:
-                    existing.quantity += quantity
-                    existing.last_updated = datetime.utcnow()
-                    confirmation = f"Added {quantity:g} to {item_obj.name} in {loc_obj.name}. New quantity: {existing.quantity:g}."
-                else:
-                    inv = Inventory(location_id=loc_id, master_item_id=item_id, quantity=quantity)
-                    db.session.add(inv)
-                    confirmation = f"Added {quantity:g} of {item_obj.name} to {loc_obj.name}."
-                db.session.commit()
-            except IntegrityError:
-                db.session.rollback()
-                error = f"Item '{item_obj.name}' already exists in {loc_obj.name}."
-                return redirect(url_for('web_inventory', location_id=loc_id, error=error))
-            # Stay on same location after POST
-            return redirect(url_for('web_inventory', location_id=loc_id, confirmation=confirmation))
-        else:
-            # If missing info, stay on same page
-            return redirect(url_for('web_inventory', location_id=loc_id))
-
-    # GET
+    items = []
     confirmation = request.args.get('confirmation')
     error = request.args.get('error')
-    if loc_param:
-        selected_location = Location.query.get(loc_param)
-        inventory = Inventory.query.filter_by(location_id=loc_param).all()
-    # Only show items not already in inventory for this location
-    if selected_location:
-        inventory_item_ids = {inv.master_item_id for inv in Inventory.query.filter_by(location_id=selected_location.id).all()}
-        items = MasterItem.query.filter(~MasterItem.id.in_(inventory_item_ids)).all()
+    if location_id:
+        selected_location = Location.query.get(location_id)
+        inventory = Inventory.query.filter_by(location_id=location_id).all()
+        # Only show items not already in inventory for this location
+        inventory_item_ids = {inv.master_item_id for inv in inventory}
+        items = MasterItem.query.filter(~MasterItem.id.in_(inventory_item_ids)).order_by(MasterItem.name).all()
     else:
-        items = MasterItem.query.all()
-    return render_template('inventory.html', locations=locations, items=items, selected_location=selected_location, inventory=inventory, selected_location_id=loc_param, confirmation=confirmation, error=error)
+        items = MasterItem.query.order_by(MasterItem.name).all()
+    return render_template('inventory.html', locations=locations, inventory=inventory, selected_location=selected_location, selected_location_id=location_id, items=items, confirmation=confirmation, error=error)
 
 @app.route('/web/inventory/update/<int:inv_id>', methods=['POST'])
 def web_update_inventory(inv_id):
@@ -440,6 +453,14 @@ def web_delete_inventory(inv_id):
     db.session.commit()
     confirmation = f"Removed {item_name} from this location."
     return redirect(url_for('web_inventory', location_id=loc_id, confirmation=confirmation))
+
+@app.route('/web/shopping-list/remove/<int:item_id>', methods=['POST'])
+def web_remove_from_shopping_list(item_id):
+    sli = ShoppingListItem.query.filter_by(item_id=item_id).first()
+    if sli:
+        db.session.delete(sli)
+        db.session.commit()
+    return ('', 204)
 
 @app.route('/web/stores', methods=['GET', 'POST'])
 def web_stores():
@@ -501,6 +522,53 @@ def web_aisles():
                     db.session.commit()
     aisles = Aisle.query.order_by(Aisle.name).all()
     return render_template('aisles.html', aisles=aisles, error=error)
+
+@app.route('/web/shopping-list', methods=['GET'])
+def web_shopping_list():
+    store_id = request.args.get('store_id', type=int)
+    stores = Store.query.order_by(Store.name).all()
+    all_sli = ShoppingListItem.query.order_by(ShoppingListItem.created_at).all()
+    filtered_sli = []
+    for sli in all_sli:
+        item_stores = sli.item.stores  # many-to-many relationship
+        if store_id:
+            if any(s.id == store_id for s in item_stores):
+                filtered_sli.append(sli)
+        else:
+            filtered_sli.append(sli)
+    # Compute total inventory for each item
+    inventory_totals = {}
+    item_store_names = {}
+    for sli in filtered_sli:
+        total = db.session.query(db.func.sum(Inventory.quantity)).filter(Inventory.master_item_id == sli.item_id).scalar() or 0
+        inventory_totals[sli.id] = total
+        item_store_names[sli.id] = ', '.join([s.name for s in sli.item.stores]) if sli.item.stores else '—'
+    return render_template('shopping_list.html', shopping_list=filtered_sli, stores=stores, inventory_totals=inventory_totals, item_store_names=item_store_names)
+
+@app.route('/web/shopping-list/toggle/<int:sli_id>', methods=['POST'])
+def web_toggle_shopping_list(sli_id):
+    sli = ShoppingListItem.query.get_or_404(sli_id)
+    checked = request.form.get('checked') == '1'
+    sli.checked = checked
+    db.session.commit()
+    return redirect(request.referrer or url_for('web_shopping_list'))
+
+@app.route('/web/shopping-list/add/<int:item_id>', methods=['POST'])
+def web_add_to_shopping_list(item_id):
+    # Only add if not already present (no store-specific for now)
+    existing = ShoppingListItem.query.filter_by(item_id=item_id).first()
+    if not existing:
+        sli = ShoppingListItem(item_id=item_id, checked=False)
+        db.session.add(sli)
+        db.session.commit()
+    return redirect(request.referrer or url_for('web_shopping_list'))
+
+@app.route('/web/shopping-list/delete/<int:sli_id>', methods=['POST'])
+def web_delete_shopping_list_item(sli_id):
+    sli = ShoppingListItem.query.get_or_404(sli_id)
+    db.session.delete(sli)
+    db.session.commit()
+    return redirect(request.referrer or url_for('web_shopping_list'))
 
 if __name__ == '__main__':
     app.run(debug=True)

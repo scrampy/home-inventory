@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Shopping List</h2>
+<form method="get" class="mb-3 d-flex gap-2 align-items-end">
+  <div>
+    <label for="store_id" class="form-label">Filter by Store</label>
+    <select id="store_id" name="store_id" class="form-select">
+      <option value="">All Stores</option>
+      {% for store in stores %}
+        <option value="{{ store.id }}" {% if store.id|string == request.args.get('store_id', '') %}selected{% endif %}>{{ store.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button class="btn btn-outline-secondary" type="submit">Filter</button>
+</form>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Item</th>
+      <th>Stores</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for sli in shopping_list %}
+    <tr>
+      <td>
+        <a href="{{ url_for('web_edit_master_item', item_id=sli.item.id) }}" class="shopping-item-name {% if sli.checked %}text-decoration-line-through text-muted{% endif %}">{{ sli.item.name }}</a>
+        <span class="badge bg-info ms-2">Qty: {{ inventory_totals[sli.id] }}</span>
+      </td>
+      <td>{{ item_store_names[sli.id] }}</td>
+      <td>
+        <form method="post" action="{{ url_for('web_toggle_shopping_list', sli_id=sli.id) }}" style="display:inline">
+          <input type="hidden" name="checked" value="{{ '0' if sli.checked else '1' }}">
+          <button class="btn btn-sm {% if sli.checked %}btn-success{% else %}btn-outline-secondary{% endif %}" type="submit">
+            <span class="form-check">
+              <input class="form-check-input" type="checkbox" {% if sli.checked %}checked{% endif %} tabindex="-1" readonly>
+              <label class="form-check-label">Bought</label>
+            </span>
+          </button>
+        </form>
+        <form method="post" action="{{ url_for('web_delete_shopping_list_item', sli_id=sli.id) }}" style="display:inline">
+          <button class="btn btn-sm btn-outline-danger ms-1" type="submit" title="Remove from list">&#10005;</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if not shopping_list %}
+  <div class="alert alert-info">No items on your shopping list.</div>
+{% endif %}
+{% endblock %}

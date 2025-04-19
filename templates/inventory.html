@@ -59,7 +59,6 @@
     <tr>
       <td>
         <a href="{{ url_for('web_edit_master_item', item_id=inv.master_item.id) }}">{{ inv.master_item.name }}</a>
-        <div class="text-muted small">Aisle: {{ inv.master_item.aisle.name if inv.master_item.aisle else '—' }}</div>
       </td>
       <td>
         <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-flex align-items-center justify-content-center gap-1 mb-0">
@@ -72,8 +71,13 @@
           <button class="btn btn-outline-secondary btn-sm px-2 py-0" style="height:28px;" title="Increase">+</button>
         </form>
       </td>
-      <td>{{ inv.last_updated.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{{ inv.last_updated.strftime('%Y-%m-%d') }}</td>
       <td>
+        <form method="post" action="" class="d-inline add-to-list-form" data-item-id="{{ inv.master_item.id }}" data-on-list="{{ '1' if inv.master_item.shopping_list_items else '0' }}">
+          <button class="btn btn-sm add-to-list-btn {{ 'btn-outline-primary' if not inv.master_item.shopping_list_items else 'btn-outline-success' }}" type="button">
+            {{ 'Add to List' if not inv.master_item.shopping_list_items else 'Remove from List' }}
+          </button>
+        </form>
         <span id="delete-actions-{{ inv.id }}">
           <button type="button" class="btn btn-sm" style="background-color:#f8d7da; color:#842029; border:1px solid #f5c2c7;" title="Remove" onclick="showDeleteConfirm({{ inv.id }})">&#10005;</button>
         </span>
@@ -152,6 +156,30 @@ function hideDeleteConfirm(invId) {
   document.getElementById('delete-actions-' + invId).style.display = '';
   document.getElementById('delete-confirm-' + invId).style.display = 'none';
   lastConfirmId = null;
+}
+
+// AJAX for Add/Remove to Shopping List
+for (const form of document.querySelectorAll('.add-to-list-form')) {
+  const btn = form.querySelector('.add-to-list-btn');
+  btn.addEventListener('click', async function(e) {
+    const itemId = form.dataset.itemId;
+    const onList = form.dataset.onList === '1';
+    if (!onList) {
+      // Add to list
+      await fetch(`/web/shopping-list/add/${itemId}`, {method: 'POST'});
+      btn.textContent = 'Remove from List';
+      btn.classList.remove('btn-outline-primary');
+      btn.classList.add('btn-outline-success');
+      form.dataset.onList = '1';
+    } else {
+      // Remove from list
+      await fetch(`/web/shopping-list/remove/${itemId}`, {method: 'POST'});
+      btn.textContent = 'Add to List';
+      btn.classList.remove('btn-outline-success');
+      btn.classList.add('btn-outline-primary');
+      form.dataset.onList = '0';
+    }
+  });
 }
 </script>
 {% endif %}
