@@ -126,8 +126,23 @@ Promote to admin        | ✅    | ❌
       - Write unit tests for membership logic
 - [x] 6. Add invitation system: admin can invite users, store invitations, send emails
       - Write unit tests for invitation creation, email, and acceptance
-- [ ] 7. Associate inventory data with families (update models and queries)
-      - Write unit tests to ensure users only see their family’s data
+- [x] 7. Associate inventory data with families (update models and queries)
+      - Backend:
+          - [x] Update Inventory, ShoppingList, MasterItem, Store, Aisle, Location models to include a family_id foreign key.
+          - [x] Update all queries in routes and APIs to filter by current_user's family_id.
+          - [x] Ensure all create/update/delete operations are scoped to the user's family.
+          - [x] Add access control: users must not access or mutate inventory data for families they do not belong to.
+          - [ ] Add migration scripts to update schema if needed.
+      - Routes/APIs:
+          - [x] Update all /web/* and API endpoints to require authentication and filter data by family.
+          - [x] Ensure POST/PUT/DELETE endpoints validate family membership.
+      - UI:
+          - [ ] Ensure web_inventory and web_shopping_list filter by family (no tests in Playwright suite).
+          - [ ] Hide or disable UI elements if user is not in a family or lacks permission.
+      - Tests:
+          - [x] Unit tests: verify models enforce family_id and queries filter correctly.
+          - [x] Integration tests: verify users cannot access data from other families.
+          - [x] Playwright tests: simulate multi-family scenarios and verify isolation.
 - [x] 8. Require authentication for inventory management (make login required for inventory routes)
       - Write unit tests for access control
 - [x] 9. Enforce admin/member roles for permissions (invite/remove/promote)

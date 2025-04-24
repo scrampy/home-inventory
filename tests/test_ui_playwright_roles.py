@@ -1,38 +1,9 @@
 import pytest
 from playwright.sync_api import sync_playwright
-import threading
-import time
-import requests
-import subprocess
 import os
 import socket
 import sqlite3
-
-class FlaskServerThread(threading.Thread):
-    def __init__(self):
-        super().__init__()
-        self.proc = None
-    def run(self):
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        env = os.environ.copy()
-        env['FLASK_TESTING'] = '1'
-        self.proc = subprocess.Popen(["python", "app.py"], cwd=project_root, env=env)
-    def stop(self):
-        if self.proc:
-            self.proc.terminate()
-            self.proc.wait()
-
-def wait_for_server(url, timeout=10):
-    start = time.time()
-    while time.time() - start < timeout:
-        try:
-            r = requests.get(url)
-            if r.status_code == 200:
-                return True
-        except Exception:
-            pass
-        time.sleep(0.5)
-    return False
+from urllib.parse import urljoin
 
 def debug_port_5000_state(phase):
     print(f"[DEBUG] {phase}: Checking port 5000...")
@@ -46,22 +17,16 @@ def debug_port_5000_state(phase):
     finally:
         s.close()
 
-@pytest.fixture(scope="session", autouse=True)
-def flask_server():
-    debug_port_5000_state("Before server start")
-    server = FlaskServerThread()
-    server.start()
-    debug_port_5000_state("After server start")
-    assert wait_for_server("http://localhost:5000/auth"), "Flask app did not start"
-    yield
-    server.stop()
-    debug_port_5000_state("After server stop")
+def print_db_path():
+    db_path = os.path.abspath('test.db')
+    print(f"DEBUG: test_ui_playwright_roles.py using DB path: {db_path}")
+    return db_path
 
 def test_role_management_ui(flask_server):
     debug_port_5000_state("Test start")
     import requests
     import sqlite3
-    db_path = "/app/test.db"
+    db_path = print_db_path()
     def debug_list_users(phase):
         try:
             conn = sqlite3.connect(db_path)
@@ -71,10 +36,11 @@ def test_role_management_ui(flask_server):
             print(f"DEBUG: Users in DB ({phase}):", users, flush=True)
             conn.close()
         except Exception as e:
-            print(f"DEBUG: Could not list users ({phase}):", e, flush=True)
+            print(f"DEBUG: Exception in debug_list_users: {e}", flush=True)
 
     # List users before signup UI
     debug_list_users("before signup UI")
+    base_url = flask_server
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
@@ -83,7 +49,7 @@ def test_role_management_ui(flask_server):
             # List users before admin signup via UI
             debug_list_users("before admin signup UI")
             # Admin signup
-            page.goto("http://localhost:5000/auth")
+            page.goto(urljoin(base_url, "/auth"))
             page.wait_for_timeout(2000)
             page.click("#signup-tab")
             page.wait_for_timeout(2000)
@@ -135,7 +101,7 @@ def test_role_management_ui(flask_server):
             # List users after submitting signup form
             debug_list_users("after admin signup form submit")
             try:
-                page.wait_for_url("**/family", timeout=15000)
+                page.wait_for_url(urljoin(base_url, "**/family"), timeout=15000)
             except Exception:
                 print('DEBUG signup page content:', page.content(), flush=True)
                 print('DEBUG signup error text:', page.inner_text("#signupError"), flush=True)
@@ -176,9 +142,9 @@ def test_role_management_ui(flask_server):
             debug_port_5000_state("After invite token")
             page.wait_for_timeout(2000)
             # Simulate member accepting invite and signing up
-            page.goto(f"http://localhost:5000/invite/accept?token={token}")
+            page.goto(urljoin(base_url, f"/invite/accept?token={token}"))
             page.wait_for_timeout(2000)
-            page.wait_for_url(f"http://localhost:5000/invite/accept?token={token}")
+            page.wait_for_url(urljoin(base_url, f"/invite/accept?token={token}"))
             page.wait_for_timeout(2000)
             page.click("#signup-tab")
             page.wait_for_timeout(2000)
@@ -194,13 +160,13 @@ def test_role_management_ui(flask_server):
             page.wait_for_timeout(2000)
             page.click("#signupForm button[type=submit]")
             page.wait_for_timeout(2000)
-            page.wait_for_url("**/family")
+            page.wait_for_url(urljoin(base_url, "**/family"))
             page.wait_for_timeout(2000)
             debug_port_5000_state("After member signup")
             page.wait_for_timeout(2000)
             page.click("text=Logout")
             page.wait_for_timeout(2000)
-            page.wait_for_url("**/auth")
+            page.wait_for_url(urljoin(base_url, "**/auth"))
             page.wait_for_timeout(2000)
             # Login as admin
             page.fill("#loginEmail", "admin2@example.com", force=True)
@@ -209,7 +175,7 @@ def test_role_management_ui(flask_server):
             page.wait_for_timeout(2000)
             page.click("#loginForm button[type=submit]")
             page.wait_for_timeout(2000)
-            page.wait_for_url("**/family")
+            page.wait_for_url(urljoin(base_url, "**/family"))
             page.wait_for_timeout(2000)
             debug_port_5000_state("After admin re-login")
             page.wait_for_timeout(2000)
