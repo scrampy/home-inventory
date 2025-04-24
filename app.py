@@ -700,6 +700,7 @@ def index():
 
 @app.route('/web/locations', methods=['GET', 'POST'])
 def web_locations():
+    import os
     if not current_user.is_authenticated:
         return redirect(url_for('auth_page'))
     error = None
@@ -710,16 +711,28 @@ def web_locations():
             error = "Location name cannot be blank."
         else:
             norm_name = name.strip().title()
-            loc = Location(name=norm_name)
-            db.session.add(loc)
-            try:
-                db.session.commit()
-            except IntegrityError:
-                db.session.rollback()
-                error = f"Location '{norm_name}' already exists."
-        return redirect(url_for('web_locations', error=error) if not error else url_for('web_locations', error=error))
+            fam_member = FamilyMember.query.filter_by(user_id=current_user.id).first()
+            if fam_member is None:
+                error = "No family found for current user."
+            else:
+                exists = Location.query.filter_by(name=norm_name, family_id=fam_member.family_id).first()
+                if exists:
+                    error = f"Location '{norm_name}' already exists."
+                else:
+                    loc = Location(name=norm_name, family_id=fam_member.family_id)
+                    db.session.add(loc)
+                    db.session.commit()
+                    # DEBUG: print DB path and locations table after commit
+                    db_path = os.path.abspath(db.engine.url.database)
+                    print(f"FLASK DEBUG: DB path after add: {db_path}", flush=True)
+                    locations = Location.query.all()
+                    print(f"FLASK DEBUG: Locations in table after add: {[l.name for l in locations]}", flush=True)
+        return redirect(url_for('web_locations', error=error) if error else url_for('web_locations'))
     error = request.args.get('error')
-    locations = Location.query.order_by(Location.name).all()
+    locations = []
+    fam_member = FamilyMember.query.filter_by(user_id=current_user.id).first()
+    if fam_member:
+        locations = Location.query.filter_by(family_id=fam_member.family_id).order_by(Location.name).all()
     # Attach number of items for each location
     for loc in locations:
         loc.num_items = Inventory.query.filter_by(location_id=loc.id).count()
@@ -750,16 +763,23 @@ def web_master_items():
             error = "Item name cannot be blank."
         else:
             norm_name = name.strip().title()
-            item = MasterItem(name=norm_name, aisle_id=aisle_id, notes=notes)
-            db.session.add(item)
-            try:
-                db.session.commit()
-            except IntegrityError:
-                db.session.rollback()
-                error = f"Item '{norm_name}' already exists."
-        return redirect(url_for('web_master_items', error=error) if not error else url_for('web_master_items', error=error))
+            fam_member = FamilyMember.query.filter_by(user_id=current_user.id).first()
+            if fam_member is None:
+                error = "No family found for current user."
+            else:
+                exists = MasterItem.query.filter_by(name=norm_name, family_id=fam_member.family_id).first()
+                if exists:
+                    error = f"Item '{norm_name}' already exists."
+                else:
+                    item = MasterItem(name=norm_name, aisle_id=aisle_id, notes=notes, family_id=fam_member.family_id)
+                    db.session.add(item)
+                    db.session.commit()
+        return redirect(url_for('web_master_items', error=error) if error else url_for('web_master_items'))
     error = request.args.get('error')
-    items = MasterItem.query.order_by(MasterItem.name).all()
+    fam_member = FamilyMember.query.filter_by(user_id=current_user.id).first()
+    items = []
+    if fam_member:
+        items = MasterItem.query.filter_by(family_id=fam_member.family_id).order_by(MasterItem.name).all()
     aisles = Aisle.query.order_by(Aisle.name).all()
     return render_template('master_items.html', items=items, aisles=aisles, error=error)
 
@@ -840,7 +860,9 @@ def web_remove_store_from_item(item_id, store_id):
 def web_inventory():
     if not current_user.is_authenticated:
         return redirect(url_for('auth_page'))
-    locations = Location.query.order_by(Location.name).all()
+    fam_member = FamilyMember.query.filter_by(user_id=current_user.id).first()
+    family_id = fam_member.family_id if fam_member else None
+    locations = Location.query.filter_by(family_id=family_id).order_by(Location.name).all() if family_id else []
     location_id = request.args.get('location_id', type=int) or request.form.get('location_id', type=int)
     # Sorting
     sort_col = request.args.get('sort_col') or request.form.get('sort_col')
@@ -853,13 +875,13 @@ def web_inventory():
         if not (location_id and master_item_id and quantity is not None):
             error = 'Please select an item and specify a quantity.'
         else:
-            inv = Inventory.query.filter_by(location_id=location_id, master_item_id=master_item_id).first()
+            inv = Inventory.query.filter_by(location_id=location_id, master_item_id=master_item_id, family_id=family_id).first()
             if inv:
                 inv.quantity = quantity
                 inv.last_updated = datetime.utcnow()
                 confirmation = f"Updated {inv.master_item.name} in inventory."
             else:
-                new_inv = Inventory(location_id=location_id, master_item_id=master_item_id, quantity=quantity, last_updated=datetime.utcnow())
+                new_inv = Inventory(location_id=location_id, master_item_id=master_item_id, quantity=quantity, last_updated=datetime.utcnow(), family_id=family_id)
                 db.session.add(new_inv)
                 confirmation = "Item added to inventory."
             db.session.commit()
@@ -870,8 +892,8 @@ def web_inventory():
     inventory = []
     items = []
     if location_id:
-        selected_location = Location.query.get(location_id)
-        inventory_query = Inventory.query.filter_by(location_id=location_id)
+        selected_location = Location.query.filter_by(id=location_id, family_id=family_id).first()
+        inventory_query = Inventory.query.filter_by(location_id=location_id, family_id=family_id)
         # Sorting logic
         if sort_col == '1':  # quantity
             if sort_dir == 'desc':
@@ -890,9 +912,9 @@ def web_inventory():
                 inventory_query = inventory_query.join(MasterItem).order_by(MasterItem.name)
         inventory = inventory_query.all()
         inventory_item_ids = {inv.master_item_id for inv in inventory}
-        items = MasterItem.query.filter(~MasterItem.id.in_(inventory_item_ids)).order_by(MasterItem.name).all()
+        items = MasterItem.query.filter(~MasterItem.id.in_(inventory_item_ids), MasterItem.family_id==family_id).order_by(MasterItem.name).all()
     else:
-        items = MasterItem.query.order_by(MasterItem.name).all()
+        items = MasterItem.query.filter_by(family_id=family_id).order_by(MasterItem.name).all() if family_id else []
     return render_template('inventory.html', locations=locations, inventory=inventory, selected_location=selected_location, selected_location_id=location_id, items=items, confirmation=confirmation, error=error, sort_col=sort_col, sort_dir=sort_dir)
 
 @app.route('/web/inventory/update/<int:inv_id>', methods=['POST'])
@@ -977,6 +999,8 @@ def web_aisles():
     if not current_user.is_authenticated:
         return redirect(url_for('auth_page'))
     error = None
+    fam_member = FamilyMember.query.filter_by(user_id=current_user.id).first()
+    family_id = fam_member.family_id if fam_member else None
     if request.method == 'POST':
         name = request.form.get('name')
         delete_id = request.form.get('delete_id')
@@ -984,21 +1008,21 @@ def web_aisles():
             norm_name = name.strip().title()
             if not norm_name:
                 error = 'Aisle name cannot be empty.'
-            elif Aisle.query.filter_by(name=norm_name).first():
+            elif Aisle.query.filter_by(name=norm_name, family_id=family_id).first():
                 error = f'Aisle "{norm_name}" already exists.'
             else:
-                aisle = Aisle(name=norm_name)
+                aisle = Aisle(name=norm_name, family_id=family_id)
                 db.session.add(aisle)
                 db.session.commit()
         elif delete_id:
-            aisle = Aisle.query.get(delete_id)
+            aisle = Aisle.query.filter_by(id=delete_id, family_id=family_id).first()
             if aisle:
                 if aisle.items:
                     error = f'Cannot delete aisle "{aisle.name}" because it is in use.'
                 else:
                     db.session.delete(aisle)
                     db.session.commit()
-    aisles = Aisle.query.order_by(Aisle.name).all()
+    aisles = Aisle.query.filter_by(family_id=family_id).order_by(Aisle.name).all() if family_id else []
     return render_template('aisles.html', aisles=aisles, error=error)
 
 @app.route('/web/shopping-list', methods=['GET'])
@@ -1128,6 +1152,17 @@ def test_setup_user():
         import traceback
         traceback.print_exc(file=sys.stderr)
         return jsonify({'error': str(e)}), 500
+
+@app.route('/test/debug-locations', methods=['GET'])
+def test_debug_locations():
+    import os
+    db_path = os.path.abspath(db.engine.url.database)
+    locations = Location.query.all()
+    names = [l.name for l in locations]
+    return {
+        'db_path': db_path,
+        'locations': names
+    }
 
 if __name__ == '__main__':
     import sys
