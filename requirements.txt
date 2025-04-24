@@ -6,3 +6,5 @@ Flask-Login==0.6.2
 Flask-Mail==0.9.1
 playwright==1.43.0
 pytest-playwright==0.4.4
+Werkzeug==2.3.7
+beautifulsoup4

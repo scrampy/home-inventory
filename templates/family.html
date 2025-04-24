@@ -11,15 +11,19 @@
           {% for member in members %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
               {{ member.user.email }}
-              <span class="badge bg-{{ 'primary' if member.role == 'admin' else 'secondary' }} me-2">{{ member.role|capitalize }}</span>
+              {% if current_user.id == member.user.id %}
+                <span class="badge bg-info me-2">Logged in as {{ member.user.email }}</span>
+              {% else %}
+                <span class="badge bg-{{ 'primary' if member.role == 'admin' else 'secondary' }} me-2">{{ member.role|capitalize }}</span>
+              {% endif %}
               {% if family and current_user.is_authenticated and current_user.id != member.user.id and current_user_role == 'admin' %}
                 {% if member.role == 'member' %}
-                  <button class="btn btn-sm btn-outline-primary promote-btn" data-user-id="{{ member.user.id }}">Promote to Admin</button>
+                  <button class="btn btn-sm btn-outline-success promote-btn" data-user-id="{{ member.user.id }}">Promote to Admin</button>
                 {% elif member.role == 'admin' %}
                   <button class="btn btn-sm btn-outline-secondary demote-btn" data-user-id="{{ member.user.id }}">Demote to Member</button>
                 {% endif %}
               {% elif current_user.id == member.user.id and member.role == 'admin' and admin_count == 1 %}
-                <button class="btn btn-sm btn-outline-secondary" disabled title="At least one admin required">Demote to Member</button>
+                <button class="btn btn-sm btn-outline-secondary demote-btn" disabled title="At least one admin required">Demote to Member</button>
               {% endif %}
             </li>
           {% endfor %}
@@ -27,7 +31,7 @@
         <form id="inviteForm" class="card card-body mb-3" style="max-width:400px;">
           <h5>Invite a Member</h5>
           <div class="mb-2">
-            <input type="email" class="form-control" id="inviteEmail" placeholder="Email address" required>
+            <input type="email" class="form-control" id="inviteEmail" name="email" placeholder="Email address" required>
           </div>
           <button class="btn btn-outline-success" type="submit">Send Invite</button>
           <div id="inviteMsg" class="alert alert-info mt-2 d-none"></div>
@@ -53,9 +57,15 @@ function maybeShowInviteToken(resp) {
 
 const inviteForm = document.getElementById('inviteForm');
 if (inviteForm) {
-  inviteForm.onsubmit = async function(e) {
+  inviteForm.onsubmit = async (e) => {
     e.preventDefault();
-    const email = document.getElementById('inviteEmail').value;
+    // Fix: Use querySelector to reliably select the input
+    const emailInput = inviteForm.querySelector('input[type="email"]');
+    if (!emailInput) {
+      alert('Invite email input not found!');
+      return;
+    }
+    const email = emailInput.value;
     let payload = { email };
     {% if family %}
     payload.family_id = {{ family.id }};
@@ -66,7 +76,17 @@ if (inviteForm) {
       body: JSON.stringify(payload)
     });
     const data = await resp.json();
-    maybeShowInviteToken(data);
+    const inviteMsg = document.getElementById('inviteMsg');
+    if (resp.ok && data.token) {
+      inviteMsg.textContent = `Invitation sent! Token: ${data.token}`;
+      inviteMsg.classList.remove('d-none');
+    } else if (resp.ok) {
+      inviteMsg.textContent = 'Invitation sent!';
+      inviteMsg.classList.remove('d-none');
+    } else {
+      inviteMsg.textContent = data.error || 'Error sending invite.';
+      inviteMsg.classList.remove('d-none');
+    }
   };
 }
 

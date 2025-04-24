@@ -114,25 +114,42 @@ Promote to admin        | ✅    | ❌
 7. Implementation To-Do (Test-Driven)
 -------------------------------------
 
-- [ ] 1. Add new SQLAlchemy models for users, families, family_members, invitations (no app logic yet)
+- [x] 1. Add new SQLAlchemy models for users, families, family_members, invitations (no app logic yet)
       - Write unit tests to verify tables are created and relationships are valid.
-- [ ] 2. Integrate Flask-Login and Flask-Mail, add user registration/login/logout (do not require login for existing features)
+- [x] 2. Integrate Flask-Login and Flask-Mail, add user registration/login/logout (do not require login for existing features)
       - Write unit tests for registration, login, logout flows
 - [ ] 3. Implement user email verification (optional, but recommended)
       - Write unit tests for verification email sending and token validation
-- [ ] 4. Add family creation: allow logged-in user to create a family, become admin
+- [x] 4. Add family creation: allow logged-in user to create a family, become admin
       - Write unit tests for family creation and admin assignment
-- [ ] 5. Implement family membership: join/leave/view families
+- [x] 5. Implement family membership: join/leave/view families
       - Write unit tests for membership logic
-- [ ] 6. Add invitation system: admin can invite users, store invitations, send emails
+- [x] 6. Add invitation system: admin can invite users, store invitations, send emails
       - Write unit tests for invitation creation, email, and acceptance
 - [ ] 7. Associate inventory data with families (update models and queries)
       - Write unit tests to ensure users only see their family’s data
-- [ ] 8. Require authentication for inventory management (make login required for inventory routes)
+- [x] 8. Require authentication for inventory management (make login required for inventory routes)
       - Write unit tests for access control
-- [ ] 9. Enforce admin/member roles for permissions (invite/remove/promote)
+- [x] 9. Enforce admin/member roles for permissions (invite/remove/promote)
       - Write unit tests for role-based access
 - [ ] 10. Final polish: error handling, UX review, documentation
       - Write integration tests for all flows
 
 **Test-Driven Principle:** Each step must include real, executable unit tests (no fakes or stubs) and must pass all tests before proceeding to the next step.
+
+Test Results as of 2025-04-23:
+-----------------------------
+- Most core and family membership/invitation features are passing all tests.
+- The following UI/Playwright tests are still failing:
+  - test_base_nav_ui (tests/test_ui_playwright.py):
+    - Fails because the test user is not authenticated when visiting /family; the test expects "Logged in as navui@example.com" but is redirected to the login page.
+    - **How to fix:** Update the test to log in the user via the UI before asserting on /family, as done in the fixed inventory login test.
+  - test_role_management_ui (tests/test_ui_playwright_roles.py):
+    - Fails due to Playwright timeout and possible port/database conflicts during role management UI flow.
+    - **How to fix:** Ensure test environment and database state are correctly set up and torn down before/after the test; explicitly create and log in required users before UI interactions; avoid port conflicts.
+- All other tests (unit and integration) are passing.
+
+When resuming work:
+-------------------
+- Prioritize updating test_base_nav_ui to perform an explicit login using the UI before checking for authenticated content.
+- Review and stabilize the test environment for test_role_management_ui, ensuring no port or DB conflicts and that all required users are set up.

@@ -64,8 +64,11 @@ def test_invite_flow(client):
     # Accept invite (simulate visiting link)
     rv = client.get(f'/invite/accept?token={token}')
     assert rv.status_code == 200
-    invite_data = rv.get_json()
-    assert invite_data['email'] == 'invitee@example.com'
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(rv.data, 'html.parser')
+    email_input = soup.find('input', {'id': 'signupEmail'})
+    assert email_input is not None
+    assert email_input['value'] == 'invitee@example.com'
     # Signup with invite
     rv = client.post('/signup', json={
         'email': 'invitee@example.com', 'password': 'pw', 'invite_token': token
@@ -95,4 +98,4 @@ def test_invite_requires_admin(client):
         sess['_user_id'] = str(user_id)
     rv = client.post('/invite', json={'email': 'fail@example.com', 'family_id': family_id})
     assert rv.status_code == 403
-    assert 'Only family admin' in rv.get_json()['error']
+    assert 'Only admins can invite' in rv.get_json()['error']

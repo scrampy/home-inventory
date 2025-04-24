@@ -4,14 +4,14 @@
   <div class="col-md-6 col-lg-5">
     <ul class="nav nav-tabs mb-3" id="authTabs" role="tablist">
       <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Login</button>
+        <button class="nav-link{% if not invite_token %} active{% endif %}" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Login</button>
       </li>
       <li class="nav-item" role="presentation">
-        <button class="nav-link" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup" type="button" role="tab">Sign Up</button>
+        <button class="nav-link{% if invite_token %} active{% endif %}" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup" type="button" role="tab">Sign Up</button>
       </li>
     </ul>
     <div class="tab-content" id="authTabsContent">
-      <div class="tab-pane fade show active" id="login" role="tabpanel">
+      <div class="tab-pane fade{% if not invite_token %} show active{% endif %}" id="login" role="tabpanel">
         <form id="loginForm" method="post">
           <div class="mb-3">
             <label for="loginEmail" class="form-label">Email</label>
@@ -25,26 +25,33 @@
           <div id="loginError" class="alert alert-danger mt-3 d-none"></div>
         </form>
       </div>
-      <div class="tab-pane fade" id="signup" role="tabpanel">
+      <div class="tab-pane fade{% if invite_token %} show active{% endif %}" id="signup" role="tabpanel">
         <form id="signupForm" method="post">
           <div class="mb-3">
             <label for="signupEmail" class="form-label">Email</label>
-            <input type="email" class="form-control" id="signupEmail" name="email" required>
+            <input type="email" class="form-control" id="signupEmail" name="email"
+              {% if invite_email %} value="{{ invite_email }}" readonly {% endif %}
+              {% if invite_email %} required {% endif %}>
           </div>
           <div class="mb-3">
             <label for="signupPassword" class="form-label">Password</label>
             <input type="password" class="form-control" id="signupPassword" name="password" required>
           </div>
           <div class="mb-3">
-            <label for="signupFamily" class="form-label">Family Name <small class="text-muted">(optional, to create a new family)</small></label>
-            <input type="text" class="form-control" id="signupFamily" name="family_name">
+            <label for="signupFamilyName" class="form-label">Family Name <small class="text-muted">(optional if joining by invite)</small></label>
+            <input type="text" class="form-control" id="signupFamilyName" name="family_name"
+              {% if invite_family_name %} value="{{ invite_family_name }}" readonly {% endif %}
+              {% if invite_family_name %} required {% endif %}>
           </div>
           <div class="mb-3">
             <label for="signupInvite" class="form-label">Invitation Token <small class="text-muted">(optional, if joining by invite)</small></label>
-            <input type="text" class="form-control" id="signupInvite" name="invite_token">
+            <input type="text" class="form-control" id="signupInvite" name="invite_token" {% if invite_token %} value="{{ invite_token }}" readonly {% endif %}>
           </div>
           <button class="btn btn-success w-100" type="submit">Sign Up</button>
           <div id="signupError" class="alert alert-danger mt-3 d-none"></div>
+          {% if invite_error %}
+            <div class="alert alert-danger mt-3">{{ invite_error }}</div>
+          {% endif %}
         </form>
       </div>
     </div>
@@ -92,5 +99,23 @@ signupForm.onsubmit = async (e) => {
     document.getElementById('signupError').classList.remove('d-none');
   }
 };
+// On page load, switch to signup tab if invite_token is present
+window.addEventListener('DOMContentLoaded', function() {
+  const inviteToken = document.getElementById('signupInvite').value;
+  if (inviteToken) {
+    var signupTab = document.getElementById('signup-tab');
+    if (signupTab) signupTab.click();
+    // If email is not prefilled, try to extract from token via backend
+    const emailInput = document.getElementById('signupEmail');
+    if (emailInput && !emailInput.value) {
+      // Try to fetch the invite email from a hidden field or data attribute
+      const inviteEmail = emailInput.getAttribute('data-invite-email');
+      if (inviteEmail) {
+        emailInput.value = inviteEmail;
+        emailInput.readOnly = true;
+      }
+    }
+  }
+});
 </script>
 {% endblock %}
