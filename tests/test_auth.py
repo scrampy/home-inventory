@@ -3,6 +3,7 @@ from app import app, db, User
 from flask_login import logout_user
 
 def setup_module(module):
+    from app import app
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['TESTING'] = True
     app.config['WTF_CSRF_ENABLED'] = False

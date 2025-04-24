@@ -2,7 +2,8 @@ import pytest
 from app import app, db, Location, Aisle, Store, MasterItem, Inventory, ShoppingListItem, Family
 
 def setup_module(module):
-    # Use a test DB file so as not to interfere with dev DB
+    # Use an in-memory DB for all unit/integration tests
+    from app import app
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['TESTING'] = True
     with app.app_context():

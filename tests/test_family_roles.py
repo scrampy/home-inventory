@@ -3,6 +3,7 @@ from app import app, db, User, Family, FamilyMember
 from flask_login import login_user
 
 def setup_module(module):
+    from app import app
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['TESTING'] = True
     with app.app_context():

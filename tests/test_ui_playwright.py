@@ -162,6 +162,13 @@ def test_base_nav_ui(flask_server):
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
+        # Explicitly log in via the UI before checking /family
+        page.goto(f"{base_url}/auth")
+        page.fill('input[name="email"]', "navui@example.com")
+        page.fill('input[name="password"]', "pw1234")
+        page.click('button[type="submit"]')
+        page.wait_for_url(f"{base_url}/family", timeout=5000)
+        # Now check the family dashboard and navigation
         page.goto(f"{base_url}/family")
         assert "Logged in as navui@example.com" in page.content()
         assert "Profile" in page.content()

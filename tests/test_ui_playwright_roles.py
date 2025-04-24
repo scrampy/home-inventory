@@ -6,6 +6,7 @@ import requests
 import subprocess
 import os
 import socket
+import sqlite3
 
 class FlaskServerThread(threading.Thread):
     def __init__(self):
@@ -58,23 +59,29 @@ def flask_server():
 
 def test_role_management_ui(flask_server):
     debug_port_5000_state("Test start")
+    import requests
+    import sqlite3
+    db_path = "/app/test.db"
+    def debug_list_users(phase):
+        try:
+            conn = sqlite3.connect(db_path)
+            cur = conn.cursor()
+            cur.execute("SELECT id, email FROM user")
+            users = cur.fetchall()
+            print(f"DEBUG: Users in DB ({phase}):", users, flush=True)
+            conn.close()
+        except Exception as e:
+            print(f"DEBUG: Could not list users ({phase}):", e, flush=True)
+
+    # List users before signup UI
+    debug_list_users("before signup UI")
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
         try:
             debug_port_5000_state("Before admin signup")
-            # DEBUG: Check if user already exists before signup
-            import sqlite3
-            import os as _os
-            db_path = _os.path.join(_os.path.dirname(__file__), '../instance/test.db')
-            if _os.path.exists(db_path):
-                with sqlite3.connect(db_path) as conn:
-                    cur = conn.cursor()
-                    cur.execute("SELECT email FROM user WHERE email=?", ("admin2@example.com",))
-                    rows = cur.fetchall()
-                    print("DEBUG: Users with email admin2@example.com before signup:", rows)
-            else:
-                print("DEBUG: test.db does not exist before signup")
+            # List users before admin signup via UI
+            debug_list_users("before admin signup UI")
             # Admin signup
             page.goto("http://localhost:5000/auth")
             page.wait_for_timeout(2000)
@@ -97,7 +104,7 @@ def test_role_management_ui(flask_server):
             # Ensure fields are editable BEFORE filling
             signup_email_editable = page.is_editable("#signupEmail")
             signup_password_editable = page.is_editable("#signupPassword")
-            signup_family_editable = page.is_editable("#signupFamily")
+            signup_family_editable = page.is_editable("#signupFamilyName")
             print('DEBUG: signupEmail editable:', signup_email_editable, flush=True)
             print('DEBUG: signupPassword editable:', signup_password_editable, flush=True)
             print('DEBUG: signupFamily editable:', signup_family_editable, flush=True)
@@ -105,6 +112,8 @@ def test_role_management_ui(flask_server):
             assert signup_password_editable, 'signupPassword field is not editable!'
             assert signup_family_editable, 'signupFamily field is not editable!'
             page.wait_for_timeout(2000)
+            # List users before submitting signup form
+            debug_list_users("before admin signup form submit")
             # Take screenshot before fill
             page.screenshot(path="/app/debug_signup_before_fill.png")
             page.wait_for_timeout(2000)
@@ -113,7 +122,7 @@ def test_role_management_ui(flask_server):
             page.wait_for_timeout(2000)
             page.fill("#signupPassword", "pw1234", force=True)
             page.wait_for_timeout(2000)
-            page.fill("#signupFamily", "RoleFamUI", force=True)
+            page.fill("#signupFamilyName", "RoleFamUI", force=True)
             page.wait_for_timeout(2000)
             # Collect browser console logs before submit
             logs = page.evaluate("window._collectedLogs || []")
@@ -123,6 +132,8 @@ def test_role_management_ui(flask_server):
             # Collect browser console logs after submit
             logs = page.evaluate("window._collectedLogs || []")
             print('DEBUG: browser console logs after submit:', logs, flush=True)
+            # List users after submitting signup form
+            debug_list_users("after admin signup form submit")
             try:
                 page.wait_for_url("**/family", timeout=15000)
             except Exception:
