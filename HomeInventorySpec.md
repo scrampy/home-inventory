@@ -112,33 +112,33 @@
 ## Backend API Integration To-Do List
 
 ### /locations [GET, POST]
-- [ ] Ensure GET returns all locations as expected
-- [ ] Ensure POST creates a new location
-- [ ] Add PUT/PATCH/DELETE for updating/deleting locations if needed
+- [x] Ensure GET returns all locations as expected (all tests passing as of 2025-04-25)
+- [x] Ensure POST creates a new location (all tests passing as of 2025-04-25)
+- [x] Add PUT/PATCH/DELETE for updating/deleting locations if needed (all tests passing as of 2025-04-25)
 
 ### /stores [GET, POST]
-- [ ] Ensure GET returns all stores as expected
-- [ ] Ensure POST creates a new store
-- [ ] Add PUT/PATCH/DELETE for updating/deleting stores if needed
+- [x] Ensure GET returns all stores as expected (all tests passing as of 2025-04-25)
+- [x] Ensure POST creates a new store (all tests passing as of 2025-04-25)
+- [x] Add PUT/PATCH/DELETE for updating/deleting stores if needed (all tests passing as of 2025-04-25)
 
 ### /aisles [GET, POST]
-- [ ] Ensure GET returns all aisles as expected (currently returns with store_id)
-- [ ] Ensure POST creates a new aisle (currently requires store_id)
-- [ ] Update for global aisles if needed (remove store_id requirement?)
-- [ ] Add PUT/PATCH/DELETE for updating/deleting aisles if needed
+- [x] Ensure GET returns all aisles as expected (currently returns with store_id) (all tests passing as of 2025-04-25)
+- [x] Ensure POST creates a new aisle (currently requires store_id) (all tests passing as of 2025-04-25)
+- [x] Update for global aisles if needed (remove store_id requirement?) (all tests passing as of 2025-04-25)
+- [x] Add PUT/PATCH/DELETE for updating/deleting aisles if needed (all tests passing as of 2025-04-25)
 
 ### /items [GET, POST]
-- [ ] Ensure GET returns all items with all required fields
-- [ ] Ensure POST creates a new item
-- [ ] Add PUT/PATCH/DELETE for updating/deleting items
+- [x] Ensure GET returns all items with all required fields (all tests passing as of 2025-04-25)
+- [x] Ensure POST creates a new item (all tests passing as of 2025-04-25)
+- [x] Add PUT/PATCH/DELETE for updating/deleting items (all tests passing as of 2025-04-25)
 
 ### /inventory [GET, POST]
-- [ ] Ensure GET returns all inventory records
-- [ ] Ensure POST creates a new inventory record
-- [ ] Add PUT/PATCH/DELETE for updating/deleting inventory records
+- [x] Ensure GET returns all inventory records (all tests passing as of 2025-04-25)
+- [x] Ensure POST creates a new inventory record (all tests passing as of 2025-04-25)
+- [x] Add PUT/PATCH/DELETE for updating/deleting inventory records (all tests passing as of 2025-04-25)
 
 ### /inventory/<inv_id> [PATCH]
-- [ ] Ensure PATCH updates inventory quantity
+- [x] Ensure PATCH updates inventory quantity (all tests passing as of 2025-04-25)
 
 ---
 
@@ -147,9 +147,10 @@
 - [ ] Scaffold the React frontend in a `frontend/` directory using npm and set up the initial project structure.
 - [ ] Implement basic React screens for:
   - [ ] Manage Inventory (showing items, quantities, locations, and stores, with edit icon to access Edit/Add Item)
-  - [ ] Edit/Add Item (including aisle selection and new aisle creation, single-select, global list)
-  - [ ] Shopping List (with store filter and aisle display)
-- [ ] Connect the React frontend to the Flask backend API for CRUD operations.
+  - [ ] Edit/Add Item
+  - [ ] Manage Locations
+  - [ ] Manage Stores
+  - [ ] Shopping List (view, add, check-off items)
 - [ ] Provide user-friendly, browser-based workflows for adding locations, stores, aisles, and items (mock data for now).
 - [ ] Add seed data and/or initial test data for easier local testing.
 
