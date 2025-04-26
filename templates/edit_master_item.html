@@ -45,7 +45,7 @@
     {% for store in item.stores %}
       <span class="chip">{{ store.name }}
         <form method="post" action="{{ url_for('web_remove_store_from_item', item_id=item.id, store_id=store.id) }}" style="display:inline">
-          <button type="submit" class="chip-remove" style="border:none;background:transparent;padding:0;margin-left:4px;cursor:pointer;" title="Remove">&times;</button>
+          <button type="submit" class="chip-remove btn btn-sm btn-outline-danger ms-2 w-100 w-md-auto" style="padding:0.25rem 1rem;margin-left:4px;cursor:pointer;min-width:44px;min-height:44px;" title="Remove">&times;</button>
         </form>
       </span>
     {% endfor %}

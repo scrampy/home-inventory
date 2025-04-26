@@ -9,22 +9,26 @@
         <ul class="list-group mb-3">
           <li class="list-group-item active">Members</li>
           {% for member in members %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              {{ member.user.email }}
-              {% if current_user.id == member.user.id %}
-                <span class="badge bg-info me-2">Logged in as {{ member.user.email }}</span>
-              {% else %}
-                <span class="badge bg-{{ 'primary' if member.role == 'admin' else 'secondary' }} me-2">{{ member.role|capitalize }}</span>
-              {% endif %}
-              {% if family and current_user.is_authenticated and current_user.id != member.user.id and current_user_role == 'admin' %}
-                {% if member.role == 'member' %}
-                  <button class="btn btn-sm btn-outline-success promote-btn" data-user-id="{{ member.user.id }}">Promote to Admin</button>
-                {% elif member.role == 'admin' %}
-                  <button class="btn btn-sm btn-outline-secondary demote-btn" data-user-id="{{ member.user.id }}">Demote to Member</button>
+            <li class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-center">
+              <div class="d-flex flex-column flex-md-row align-items-md-center w-100">
+                {{ member.user.email }}
+                {% if current_user.id == member.user.id %}
+                  <span class="badge bg-info me-2 mt-2 mt-md-0">Logged in as {{ member.user.email }}</span>
+                {% else %}
+                  <span class="badge bg-{{ 'primary' if member.role == 'admin' else 'secondary' }} me-2 mt-2 mt-md-0">{{ member.role|capitalize }}</span>
                 {% endif %}
-              {% elif current_user.id == member.user.id and member.role == 'admin' and admin_count == 1 %}
-                <button class="btn btn-sm btn-outline-secondary demote-btn" disabled title="At least one admin required">Demote to Member</button>
-              {% endif %}
+              </div>
+              <div class="d-flex flex-column flex-md-row w-100 w-md-auto mt-2 mt-md-0">
+                {% if family and current_user.is_authenticated and current_user.id != member.user.id and current_user_role == 'admin' %}
+                  {% if member.role == 'member' %}
+                    <button class="btn btn-sm btn-outline-success promote-btn w-100 w-md-auto mb-1 mb-md-0" data-user-id="{{ member.user.id }}">Promote to Admin</button>
+                  {% elif member.role == 'admin' %}
+                    <button class="btn btn-sm btn-outline-secondary demote-btn w-100 w-md-auto mb-1 mb-md-0" data-user-id="{{ member.user.id }}">Demote to Member</button>
+                  {% endif %}
+                {% elif current_user.id == member.user.id and member.role == 'admin' and admin_count == 1 %}
+                  <button class="btn btn-sm btn-outline-secondary demote-btn w-100 w-md-auto mb-1 mb-md-0" disabled title="At least one admin required">Demote to Member</button>
+                {% endif %}
+              </div>
             </li>
           {% endfor %}
         </ul>

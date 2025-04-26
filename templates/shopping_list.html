@@ -13,40 +13,42 @@
   </div>
   <button class="btn btn-outline-secondary" type="submit">Filter</button>
 </form>
-<table class="table table-striped">
-  <thead>
-    <tr>
-      <th>Item</th>
-      <th>Stores</th>
-      <th>Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for sli in shopping_list %}
-    <tr>
-      <td>
-        <a href="{{ url_for('web_edit_master_item', item_id=sli.item.id) }}" class="shopping-item-name {% if sli.checked %}text-decoration-line-through text-muted{% endif %}">{{ sli.item.name }}</a>
-        <span class="badge bg-info ms-2">Qty: {{ inventory_totals[sli.id] }}</span>
-      </td>
-      <td>{{ item_store_names[sli.id] }}</td>
-      <td>
-        <form method="post" action="{{ url_for('web_toggle_shopping_list', sli_id=sli.id) }}" style="display:inline">
-          <input type="hidden" name="checked" value="{{ '0' if sli.checked else '1' }}">
-          <button class="btn btn-sm {% if sli.checked %}btn-success{% else %}btn-outline-secondary{% endif %}" type="submit">
-            <span class="form-check">
-              <input class="form-check-input" type="checkbox" {% if sli.checked %}checked{% endif %} tabindex="-1" readonly>
-              <label class="form-check-label">Bought</label>
-            </span>
-          </button>
-        </form>
-        <form method="post" action="{{ url_for('web_delete_shopping_list_item', sli_id=sli.id) }}" style="display:inline">
-          <button class="btn btn-sm btn-outline-danger ms-1" type="submit" title="Remove from list">&#10005;</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="table-responsive">
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Stores</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sli in shopping_list %}
+      <tr>
+        <td>
+          <a href="{{ url_for('web_edit_master_item', item_id=sli.item.id) }}" class="shopping-item-name {% if sli.checked %}text-decoration-line-through text-muted{% endif %}">{{ sli.item.name }}</a>
+          <span class="badge bg-info ms-2">Qty: {{ inventory_totals[sli.id] }}</span>
+        </td>
+        <td>{{ item_store_names[sli.id] }}</td>
+        <td>
+          <form method="post" action="{{ url_for('web_toggle_shopping_list', sli_id=sli.id) }}" style="display:inline">
+            <input type="hidden" name="checked" value="{{ '0' if sli.checked else '1' }}">
+            <button class="btn btn-sm {% if sli.checked %}btn-success{% else %}btn-outline-secondary{% endif %} w-100 w-md-auto mb-1" type="submit">
+              <span class="form-check">
+                <input class="form-check-input" type="checkbox" {% if sli.checked %}checked{% endif %} tabindex="-1" readonly>
+                <label class="form-check-label">Bought</label>
+              </span>
+            </button>
+          </form>
+          <form method="post" action="{{ url_for('web_delete_shopping_list_item', sli_id=sli.id) }}" style="display:inline">
+            <button class="btn btn-sm btn-outline-danger ms-1 w-100 w-md-auto" type="submit" title="Remove from list">&#10005;</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% if not shopping_list %}
   <div class="alert alert-info">No items on your shopping list.</div>
 {% endif %}

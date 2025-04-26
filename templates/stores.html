@@ -19,38 +19,40 @@
     <button class="btn btn-primary">Add</button>
   </div>
 </form>
-<table class="table table-striped mt-3">
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Number of Items</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for store in stores %}
-    <tr id="store-row-{{ store.id }}">
-      <td>{{ store.name }}</td>
-      <td>{{ store.num_items }}</td>
-      <td>
-        {% if store.num_items == 0 %}
-          <span id="delete-actions-{{ store.id }}">
-            <button type="button" class="btn btn-sm" style="background-color:#f8d7da; color:#842029; border:1px solid #f5c2c7;" title="Remove" onclick="showDeleteConfirm({{ store.id }})">&#10005;</button>
-          </span>
-          <span id="delete-confirm-{{ store.id }}" style="display:none;">
-            <button type="button" class="btn btn-secondary btn-sm me-1" onclick="hideDeleteConfirm({{ store.id }})">Cancel</button>
-            <form method="post" action="{{ url_for('web_delete_store', store_id=store.id) }}" style="display:inline;">
-              <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-            </form>
-          </span>
-        {% else %}
-          <button class="btn btn-sm" style="background-color:#eee; color:#aaa; border:1px solid #eee; cursor:not-allowed;" title="Cannot delete store in use" disabled>&#10005;</button>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="table-responsive">
+  <table class="table table-striped mt-3">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Number of Items</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for store in stores %}
+      <tr id="store-row-{{ store.id }}">
+        <td>{{ store.name }}</td>
+        <td>{{ store.num_items }}</td>
+        <td>
+          {% if store.num_items == 0 %}
+            <span id="delete-actions-{{ store.id }}">
+              <button type="button" class="btn btn-sm" style="background-color:#f8d7da; color:#842029; border:1px solid #f5c2c7;" title="Remove" onclick="showDeleteConfirm({{ store.id }})">&#10005;</button>
+            </span>
+            <span id="delete-confirm-{{ store.id }}" style="display:none;">
+              <button type="button" class="btn btn-secondary btn-sm me-1" onclick="hideDeleteConfirm({{ store.id }})">Cancel</button>
+              <form method="post" action="{{ url_for('web_delete_store', store_id=store.id) }}" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </span>
+          {% else %}
+            <button class="btn btn-sm" style="background-color:#eee; color:#aaa; border:1px solid #eee; cursor:not-allowed;" title="Cannot delete store in use" disabled>&#10005;</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 <script>
 let lastConfirmStoreId = null;
 function showDeleteConfirm(storeId) {

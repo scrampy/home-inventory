@@ -23,7 +23,7 @@
   </div>
 {% endif %}
 <form method="post" class="row g-3 mb-4">
-  <div class="col-auto">
+  <div class="col-12 col-md-auto">
     <select name="master_item_id" class="form-select" required>
       <option value="">Select Item</option>
       {% for item in items %}
@@ -31,12 +31,12 @@
       {% endfor %}
     </select>
   </div>
-  <div class="col-auto">
+  <div class="col-12 col-md-auto mt-2 mt-md-0">
     <input type="hidden" name="location_id" value="{{ selected_location.id }}">
     <input type="number" step="1" min="1" name="quantity" class="form-control" placeholder="Quantity" value="1" required>
   </div>
-  <div class="col-auto">
-    <button class="btn btn-success">Add/Update</button>
+  <div class="col-12 col-md-auto mt-2 mt-md-0">
+    <button class="btn btn-success w-100">Add/Update</button>
   </div>
 </form>
 
@@ -45,6 +45,11 @@
 {% endif %}
 
 <h4>Current Inventory</h4>
+{% endif %}
+{% if not selected_location %}
+  <div class="alert alert-info mt-3">Select a location to view inventory.</div>
+{% endif %}
+<div class="table-responsive" id="table-responsive-wrapper">
 <table class="table" id="inventoryTable">
   <thead>
     <tr>
@@ -61,34 +66,34 @@
         <a href="{{ url_for('web_edit_master_item', item_id=inv.master_item.id) }}">{{ inv.master_item.name }}</a>
       </td>
       <td>
-        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-flex align-items-center justify-content-center gap-1 mb-0 inventory-update-form">
+        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-center gap-1 mb-0 inventory-update-form">
           <input type="hidden" name="quantity" value="{{ (inv.quantity - 1) if inv.quantity > 0 else 0 }}">
           <input type="hidden" name="sort_col" value="{{ request.args.get('sort_col', '') }}">
           <input type="hidden" name="sort_dir" value="{{ request.args.get('sort_dir', '') }}">
-          <button class="btn btn-outline-secondary btn-sm px-2 py-0" style="height:28px;" {% if inv.quantity <= 0 %}disabled{% endif %} title="Decrease">-</button>
+          <button class="btn btn-outline-secondary btn-sm px-2 py-0 w-100 w-md-auto" style="height:28px;" {% if inv.quantity <= 0 %}disabled{% endif %} title="Decrease">-</button>
         </form>
         <span class="mx-2 align-middle" style="min-width: 24px; display: inline-block; text-align: center;">{{ inv.quantity }}</span>
-        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-flex align-items-center justify-content-center gap-1 mb-0 inventory-update-form">
+        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-center gap-1 mb-0 inventory-update-form">
           <input type="hidden" name="quantity" value="{{ inv.quantity + 1 }}">
           <input type="hidden" name="sort_col" value="{{ request.args.get('sort_col', '') }}">
           <input type="hidden" name="sort_dir" value="{{ request.args.get('sort_dir', '') }}">
-          <button class="btn btn-outline-secondary btn-sm px-2 py-0" style="height:28px;" title="Increase">+</button>
+          <button class="btn btn-outline-secondary btn-sm px-2 py-0 w-100 w-md-auto" style="height:28px;" title="Increase">+</button>
         </form>
       </td>
       <td>{{ inv.last_updated.strftime('%Y-%m-%d') }}</td>
       <td>
-        <form method="post" action="" class="d-inline add-to-list-form" data-item-id="{{ inv.master_item.id }}" data-on-list="{{ '1' if inv.master_item.shopping_list_items else '0' }}">
-          <button class="btn btn-sm add-to-list-btn {{ 'btn-outline-primary' if not inv.master_item.shopping_list_items else 'btn-outline-success' }}" type="button">
+        <form method="post" action="" class="d-inline add-to-list-form w-100 w-md-auto" data-item-id="{{ inv.master_item.id }}" data-on-list="{{ '1' if inv.master_item.shopping_list_items else '0' }}">
+          <button class="btn btn-sm add-to-list-btn {{ 'btn-outline-primary' if not inv.master_item.shopping_list_items else 'btn-outline-success' }} w-100 w-md-auto" type="button">
             {{ 'Add to List' if not inv.master_item.shopping_list_items else 'Remove from List' }}
           </button>
         </form>
         <span id="delete-actions-{{ inv.id }}">
-          <button type="button" class="btn btn-sm" style="background-color:#f8d7da; color:#842029; border:1px solid #f5c2c7;" title="Remove" onclick="showDeleteConfirm({{ inv.id }})">&#10005;</button>
+          <button type="button" class="btn btn-sm w-100 w-md-auto" style="background-color:#f8d7da; color:#842029; border:1px solid #f5c2c7;" title="Remove" onclick="showDeleteConfirm({{ inv.id }})">&#10005;</button>
         </span>
         <span id="delete-confirm-{{ inv.id }}" style="display:none;">
-          <button type="button" class="btn btn-secondary btn-sm me-1" onclick="hideDeleteConfirm({{ inv.id }})">Cancel</button>
+          <button type="button" class="btn btn-secondary btn-sm me-1 w-100 w-md-auto" onclick="hideDeleteConfirm({{ inv.id }})">Cancel</button>
           <form method="post" action="{{ url_for('web_delete_inventory', inv_id=inv.id) }}" style="display:inline;">
-            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+            <button type="submit" class="btn btn-danger btn-sm w-100 w-md-auto">Delete</button>
           </form>
         </span>
       </td>
@@ -96,6 +101,7 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 <script>
 let sortDir = [true, true, true]; // true=asc, false=desc for each column
 // Read initial sort state from URL
@@ -222,5 +228,4 @@ for (const form of document.querySelectorAll('.add-to-list-form')) {
   });
 }
 </script>
-{% endif %}
 {% endblock %}

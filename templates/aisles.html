@@ -11,31 +11,33 @@
 {% if error %}
   <div class="alert alert-danger">{{ error }}</div>
 {% endif %}
-<table class="table table-striped">
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Items</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for aisle in aisles %}
-    <tr>
-      <td>{{ aisle.name }}</td>
-      <td>{{ aisle.items|length }}</td>
-      <td>
-        {% if aisle.items|length == 0 %}
-        <form method="post" action="{{ url_for('web_aisles') }}" style="display:inline">
-          <input type="hidden" name="delete_id" value="{{ aisle.id }}">
-          <button class="btn btn-sm btn-danger" type="submit" onclick="return confirm('Delete aisle {{ aisle.name }}?')">Delete</button>
-        </form>
-        {% else %}
-        <button class="btn btn-sm btn-secondary" disabled>In Use</button>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="table-responsive">
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Items</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for aisle in aisles %}
+      <tr>
+        <td>{{ aisle.name }}</td>
+        <td>{{ aisle.items|length }}</td>
+        <td>
+          {% if aisle.items|length == 0 %}
+          <form method="post" action="{{ url_for('web_aisles') }}" style="display:inline">
+            <input type="hidden" name="delete_id" value="{{ aisle.id }}">
+            <button class="btn btn-sm btn-danger" type="submit" onclick="return confirm('Delete aisle {{ aisle.name }}?')">Delete</button>
+          </form>
+          {% else %}
+          <button class="btn btn-sm btn-secondary" disabled>In Use</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

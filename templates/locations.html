@@ -19,38 +19,40 @@
     <button class="btn btn-primary">Add</button>
   </div>
 </form>
-<table class="table table-striped mt-3">
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Number of Items</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for loc in locations %}
-    <tr id="location-row-{{ loc.id }}">
-      <td>{{ loc.name }}</td>
-      <td>{{ loc.num_items }}</td>
-      <td>
-        {% if loc.num_items == 0 %}
-          <span id="delete-actions-{{ loc.id }}">
-            <button type="button" class="btn btn-sm" style="background-color:#f8d7da; color:#842029; border:1px solid #f5c2c7;" title="Remove" onclick="showDeleteConfirm({{ loc.id }})">&#10005;</button>
-          </span>
-          <span id="delete-confirm-{{ loc.id }}" style="display:none;">
-            <button type="button" class="btn btn-secondary btn-sm me-1" onclick="hideDeleteConfirm({{ loc.id }})">Cancel</button>
-            <form method="post" action="{{ url_for('web_delete_location', loc_id=loc.id) }}" style="display:inline;">
-              <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-            </form>
-          </span>
-        {% else %}
-          <button class="btn btn-sm" style="background-color:#eee; color:#aaa; border:1px solid #eee; cursor:not-allowed;" title="Cannot delete non-empty location" disabled>&#10005;</button>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="table-responsive">
+  <table class="table table-striped mt-3">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Number of Items</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for loc in locations %}
+      <tr id="location-row-{{ loc.id }}">
+        <td>{{ loc.name }}</td>
+        <td>{{ loc.num_items }}</td>
+        <td>
+          {% if loc.num_items == 0 %}
+            <span id="delete-actions-{{ loc.id }}">
+              <button type="button" class="btn btn-sm" style="background-color:#f8d7da; color:#842029; border:1px solid #f5c2c7;" title="Remove" onclick="showDeleteConfirm({{ loc.id }})">&#10005;</button>
+            </span>
+            <span id="delete-confirm-{{ loc.id }}" style="display:none;">
+              <button type="button" class="btn btn-secondary btn-sm me-1" onclick="hideDeleteConfirm({{ loc.id }})">Cancel</button>
+              <form method="post" action="{{ url_for('web_delete_location', loc_id=loc.id) }}" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </span>
+          {% else %}
+            <button class="btn btn-sm" style="background-color:#eee; color:#aaa; border:1px solid #eee; cursor:not-allowed;" title="Cannot delete non-empty location" disabled>&#10005;</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 <script>
 // Inline delete confirmation logic for locations
 let lastConfirmLocId = null;
