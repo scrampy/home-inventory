@@ -1,4 +1,10 @@
 import os
+
+# Ensure instance folder exists before DB setup (for production/non-test use)
+instance_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance')
+if not os.path.exists(instance_dir):
+    os.makedirs(instance_dir, exist_ok=True)
+
 if os.environ.get('FLASK_TESTING') == '1':
     testing_mode = True
 else:
