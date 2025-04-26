@@ -54,6 +54,7 @@ _Last updated: 2025-04-26_
         - **Issue:** Table is empty unless a location is selected. This is by design, but should be documented for test clarity.
         - **Proposed Fix:** Add a placeholder row or message (e.g., "Select a location to view inventory") when no location is selected. Ensure all table actions/buttons remain accessible at mobile breakpoints.
       - **Status:** Responsive; minor UX improvement suggested.
+      - **Recent Improvements (2025-04-26):** Inventory UI now has much more compact +, -, and delete (×) buttons, reducing horizontal space usage and improving portrait/mobile usability. The "Last Updated" column was removed from the inventory table for a cleaner, less cramped look. All inventory-related UI tests pass after these changes.
     - [x] `locations.html`  
       - **Audit (2025-04-26):**
         - Uses Bootstrap table (`.table-striped`) and input group for the add-location form.

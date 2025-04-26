@@ -20,6 +20,7 @@
    - Quick add: Only require name, location (default to "No location"), quantity, and store (default to "No store"). 
    - Additional details (notes, photo, aisle) can be added in a separate details/edit screen. 
    - Users can edit and delete items. 
+   - Inventory UI: Action buttons (+, -, ×) are now compact, and the Last Updated column is removed for better mobile/portrait usability.
 
 3. **Collaboration & History**
    - No change tracking or undo/restore features will be implemented. (N/A)

@@ -961,23 +961,28 @@ def web_stores():
         return redirect(url_for('auth_page'))
     error = None
     confirmation = None
+    fam_member = FamilyMember.query.filter_by(user_id=current_user.id).first()
+    if not fam_member:
+        error = "No family membership found."
+        return render_template('stores.html', stores=[], error=error, confirmation=confirmation)
     if request.method == 'POST':
         name = request.form.get('name')
         if not name or not name.strip():
             error = "Store name cannot be blank."
         else:
             norm_name = name.strip().title()
-            store = Store(name=norm_name)
-            db.session.add(store)
-            try:
-                db.session.commit()
-            except IntegrityError:
-                db.session.rollback()
+            exists = Store.query.filter_by(name=norm_name, family_id=fam_member.family_id).first()
+            if exists:
                 error = f"Store '{norm_name}' already exists."
-        return redirect(url_for('web_stores', error=error) if not error else url_for('web_stores', error=error))
+            else:
+                store = Store(name=norm_name, family_id=fam_member.family_id)
+                db.session.add(store)
+                db.session.commit()
+                confirmation = f"Store '{norm_name}' added."
+        return redirect(url_for('web_stores', error=error, confirmation=confirmation) if not error else url_for('web_stores', error=error))
     error = request.args.get('error')
     confirmation = request.args.get('confirmation')
-    stores = Store.query.order_by(Store.name).all()
+    stores = Store.query.filter_by(family_id=fam_member.family_id).order_by(Store.name).all()
     for store in stores:
         store.num_items = len(store.items)
     return render_template('stores.html', stores=stores, error=error, confirmation=confirmation)

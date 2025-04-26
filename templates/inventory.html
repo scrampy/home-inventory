@@ -55,7 +55,6 @@
     <tr>
       <th style="cursor:pointer;" onclick="sortTable(0)">Item <span id="sortIcon0"></span></th>
       <th style="cursor:pointer;" onclick="sortTable(1)">Quantity <span id="sortIcon1"></span></th>
-      <th style="cursor:pointer;" onclick="sortTable(2)">Last Updated <span id="sortIcon2"></span></th>
       <th>Actions</th>
     </tr>
   </thead>
@@ -66,34 +65,30 @@
         <a href="{{ url_for('web_edit_master_item', item_id=inv.master_item.id) }}">{{ inv.master_item.name }}</a>
       </td>
       <td>
-        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-center gap-1 mb-0 inventory-update-form">
+        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-block inventory-update-form" style="margin:0;padding:0;">
           <input type="hidden" name="quantity" value="{{ (inv.quantity - 1) if inv.quantity > 0 else 0 }}">
           <input type="hidden" name="sort_col" value="{{ request.args.get('sort_col', '') }}">
           <input type="hidden" name="sort_dir" value="{{ request.args.get('sort_dir', '') }}">
-          <button class="btn btn-outline-secondary btn-sm px-2 py-0 w-100 w-md-auto" style="height:28px;" {% if inv.quantity <= 0 %}disabled{% endif %} title="Decrease">-</button>
+          <button class="btn btn-outline-secondary btn-sm px-1 py-0" style="min-width:2.5ch;width:2.5ch;height:2.1em;line-height:1;" {% if inv.quantity <= 0 %}disabled{% endif %} title="Decrease">-</button>
         </form>
-        <span class="mx-2 align-middle" style="min-width: 24px; display: inline-block; text-align: center;">{{ inv.quantity }}</span>
-        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-center gap-1 mb-0 inventory-update-form">
+        <span class="mx-1 align-middle" style="min-width: 2.5ch; display: inline-block; text-align: center;">{{ inv.quantity }}</span>
+        <form method="post" action="{{ url_for('web_update_inventory', inv_id=inv.id) }}" class="d-inline-block inventory-update-form" style="margin:0;padding:0;">
           <input type="hidden" name="quantity" value="{{ inv.quantity + 1 }}">
           <input type="hidden" name="sort_col" value="{{ request.args.get('sort_col', '') }}">
           <input type="hidden" name="sort_dir" value="{{ request.args.get('sort_dir', '') }}">
-          <button class="btn btn-outline-secondary btn-sm px-2 py-0 w-100 w-md-auto" style="height:28px;" title="Increase">+</button>
+          <button class="btn btn-outline-secondary btn-sm px-1 py-0" style="min-width:2.5ch;width:2.5ch;height:2.1em;line-height:1;" title="Increase">+</button>
         </form>
       </td>
-      <td>{{ inv.last_updated.strftime('%Y-%m-%d') }}</td>
       <td>
-        <form method="post" action="" class="d-inline add-to-list-form w-100 w-md-auto" data-item-id="{{ inv.master_item.id }}" data-on-list="{{ '1' if inv.master_item.shopping_list_items else '0' }}">
-          <button class="btn btn-sm add-to-list-btn {{ 'btn-outline-primary' if not inv.master_item.shopping_list_items else 'btn-outline-success' }} w-100 w-md-auto" type="button">
-            {{ 'Add to List' if not inv.master_item.shopping_list_items else 'Remove from List' }}
-          </button>
-        </form>
         <span id="delete-actions-{{ inv.id }}">
-          <button type="button" class="btn btn-sm w-100 w-md-auto" style="background-color:#f8d7da; color:#842029; border:1px solid #f5c2c7;" title="Remove" onclick="showDeleteConfirm({{ inv.id }})">&#10005;</button>
+          <form method="post" action="{{ url_for('web_delete_inventory', inv_id=inv.id) }}" class="d-inline-block mb-0" style="margin:0;padding:0;">
+            <button type="submit" class="btn btn-danger btn-sm px-1 py-0" style="min-width:2.5ch;width:2.5ch;height:2.1em;line-height:1;">&#10005;</button>
+          </form>
         </span>
         <span id="delete-confirm-{{ inv.id }}" style="display:none;">
-          <button type="button" class="btn btn-secondary btn-sm me-1 w-100 w-md-auto" onclick="hideDeleteConfirm({{ inv.id }})">Cancel</button>
-          <form method="post" action="{{ url_for('web_delete_inventory', inv_id=inv.id) }}" style="display:inline;">
-            <button type="submit" class="btn btn-danger btn-sm w-100 w-md-auto">Delete</button>
+          <button type="button" class="btn btn-secondary btn-sm me-1 px-2 py-0" onclick="hideDeleteConfirm({{ inv.id }})">Cancel</button>
+          <form method="post" action="{{ url_for('web_delete_inventory', inv_id=inv.id) }}" class="d-inline-block mb-0" style="margin:0;padding:0;">
+            <button type="submit" class="btn btn-danger btn-sm px-1 py-0" style="min-width:2.5ch;width:2.5ch;height:2.1em;line-height:1;">&#10005;</button>
           </form>
         </span>
       </td>
@@ -103,7 +98,7 @@
 </table>
 </div>
 <script>
-let sortDir = [true, true, true]; // true=asc, false=desc for each column
+let sortDir = [true, true]; // true=asc, false=desc for each column
 // Read initial sort state from URL
 function getQueryParam(name) {
   const url = new URL(window.location);
@@ -130,9 +125,6 @@ function sortTable(n, forceDir) {
         // Quantity: get the text from the span
         xVal = parseInt(x.querySelector('span').innerText.trim());
         yVal = parseInt(y.querySelector('span').innerText.trim());
-      } else if (n === 2) {
-        xVal = Date.parse(x.innerText.trim());
-        yVal = Date.parse(y.innerText.trim());
       } else {
         xVal = x.innerText.trim();
         yVal = y.innerText.trim();
@@ -155,7 +147,7 @@ function sortTable(n, forceDir) {
     }
   }
   // Update sort icons
-  for (let k = 0; k < 3; k++) {
+  for (let k = 0; k < 2; k++) {
     document.getElementById('sortIcon'+k).innerText = '';
   }
   document.getElementById('sortIcon'+n).innerText = dir === 'asc' ? '▲' : '▼';
@@ -177,7 +169,7 @@ window.addEventListener('DOMContentLoaded', function() {
   let dir = getQueryParam('sort_dir');
   if (col !== null && dir !== null) {
     // Set sort icon
-    for (let k = 0; k < 3; k++) {
+    for (let k = 0; k < 2; k++) {
       document.getElementById('sortIcon'+k).innerText = '';
     }
     document.getElementById('sortIcon'+col).innerText = dir === 'asc' ? '▲' : '▼';

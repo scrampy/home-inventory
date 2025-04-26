@@ -362,3 +362,40 @@ def test_shopping_list_mobile_responsive(flask_server):
         # Should show empty shopping list message
         assert page.locator('.alert-info').inner_text().strip().startswith("No items on your shopping list"), "Shopping list not empty after deleting item"
         browser.close()
+
+def test_store_add_and_duplicate_ui(flask_server):
+    """
+    UI test: Add a store (e.g., 'walmart'), verify it appears (title-cased as 'Walmart'), then try to add again and check for duplicate error.
+    Follows technique and setup from other UI tests (login, setup_test_user, etc).
+    Uses the actual button markup from stores.html.
+    """
+    base_url = flask_server
+    setup_test_user("ui_store@example.com", "pw1234", "UITestFam", base_url)
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width":375, "height":667})
+        # Login
+        page.goto(f"{base_url}/auth")
+        page.fill('input[name="email"]', "ui_store@example.com")
+        page.fill('input[name="password"]', "pw1234")
+        page.click('button[type="submit"]')
+        page.wait_for_url(f"{base_url}/family", timeout=5000)
+        # Go to stores page
+        page.goto(f"{base_url}/web/stores")
+        # Add a new store (lowercase, should be title-cased in UI)
+        store_name = "walmart"
+        page.fill('input[name="name"]', store_name)
+        # The submit button is: <button class="btn btn-primary">Add</button>
+        page.get_by_role("button", name="Add").click()
+        page.wait_for_timeout(500)
+        # Store should appear in the table, title-cased
+        store_row = page.locator('table tr td').filter(has_text="Walmart")
+        assert store_row.count() > 0, "Store 'Walmart' not found in UI after add."
+        # Try to add duplicate
+        page.fill('input[name="name"]', store_name)
+        page.get_by_role("button", name="Add").click()
+        page.wait_for_timeout(500)
+        # Should see error message about duplicate store
+        error_alert = page.locator('.alert-danger, .invalid-feedback').filter(has_text="already exists")
+        assert error_alert.count() > 0, "Duplicate store error not shown in UI."
+        browser.close()

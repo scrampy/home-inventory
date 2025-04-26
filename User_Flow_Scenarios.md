@@ -20,7 +20,7 @@ This document outlines the key user flows and UI/backend interactions inferred f
     - Selects an item from the dropdown.
     - Enters quantity.
     - Submits the form.
-4. **Inventory table updates** to show the item in the selected location.
+4. **Inventory table updates** to show the item in the selected location with one row per item, featuring minimal button width for +, -, and delete actions.
 
 ### 2. Add Location
 1. User logs in.
@@ -60,6 +60,9 @@ This document outlines the key user flows and UI/backend interactions inferred f
     - The test now logs in, creates inventory data, and **selects a location in the dropdown before asserting** on inventory table contents and action buttons.
     - This ensures the test accurately matches user behavior and the requirements described above.
 - All future UI/E2E tests must similarly adhere to these documented flows.
+- Inventory screen now shows one row per item with minimal button width for +, -, and delete actions.
+- "Last Update" column removed for a cleaner, less cramped appearance.
+- Confirmed via automated UI tests.
 
 ---
 
