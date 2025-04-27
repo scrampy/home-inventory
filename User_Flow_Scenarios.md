@@ -13,14 +13,13 @@ This document outlines the key user flows and UI/backend interactions inferred f
 
 ## Key User Flows
 
-### 1. Add Item to Inventory
-1. **User logs in** (required for all inventory actions).
-2. **User selects a location** from the dropdown on the Inventory screen.
-3. **User fills out the "Add / Update Items" form:**
-    - Selects an item from the dropdown.
-    - Enters quantity.
-    - Submits the form.
-4. **Inventory table updates** to show the item in the selected location with one row per item, featuring minimal button width for +, -, and delete actions.
+### 1. Add Item to Inventory and Shopping List (with Aisle)
+1. User logs in.
+2. User navigates to the Master Items screen.
+3. User adds a new item, assigning an aisle (e.g., "Produce").
+4. User adds the item to the shopping list from the Master Items screen.
+5. User navigates to the Shopping List screen.
+6. The item appears in the shopping list with the assigned aisle shown in the "Aisle" column.
 
 ### 2. Add Location
 1. User logs in.
@@ -88,6 +87,7 @@ This document outlines the key user flows and UI/backend interactions inferred f
 - [x] Aisles Management (mobile): Add and remove aisles; verify responsive table and tap targets. (Tested and passed)
 - [x] Master Items (mobile): Add, edit, and delete master items; add to shopping list; verify tap targets. (Tested and passed)
 - [x] Shopping List (mobile): Add, check off, and remove items; verify responsive table and tap targets. (Tested and passed)
+- [ ] Shopping List (mobile): Add item with assigned aisle; verify aisle appears in shopping list UI.
 
 ---
 

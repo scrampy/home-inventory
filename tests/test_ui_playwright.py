@@ -351,6 +351,11 @@ def test_shopping_list_mobile_responsive(flask_server):
         delete_box = delete_btn.bounding_box()
         assert bought_box["width"] >= 44, "Bought button tap target too small"
         assert delete_box["width"] >= 44, "Delete button tap target too small"
+        # Check that the aisle column shows the expected aisle
+        aisle_cell = first_row.locator('td').nth(2)  # 0: Item, 1: Stores, 2: Aisle
+        assert aisle_cell.inner_text().strip() == "ShopTestAisle", f"Expected aisle 'ShopTestAisle', got: {aisle_cell.inner_text().strip()}"
+        # Take evidence screenshot
+        page.screenshot(path="tests/evidence/shopping_list_aisle_column_correct.png", full_page=True)
         # Mark as bought
         bought_btn.click()
         page.wait_for_timeout(500)
