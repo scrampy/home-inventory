@@ -19,6 +19,7 @@
       <tr>
         <th>Item</th>
         <th>Stores</th>
+        <th>Aisle</th>
         <th>Status</th>
       </tr>
     </thead>
@@ -30,6 +31,7 @@
           <span class="badge bg-info ms-2">Qty: {{ inventory_totals[sli.id] }}</span>
         </td>
         <td>{{ item_store_names[sli.id] }}</td>
+        <td>{% if sli.item.aisle %}{{ sli.item.aisle.name }}{% else %}--{% endif %}</td>
         <td>
           <form method="post" action="{{ url_for('web_toggle_shopping_list', sli_id=sli.id) }}" style="display:inline">
             <input type="hidden" name="checked" value="{{ '0' if sli.checked else '1' }}">
