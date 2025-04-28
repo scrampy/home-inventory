@@ -20,6 +20,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
 if testing_mode:
@@ -57,6 +58,19 @@ serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# --- ProxyFix: Enable only if not testing or manually disabled ---
+#
+# ProxyFix is enabled by default in DEV and PROD environments unless one of the following is true:
+#   1. The environment variable FLASK_TESTING=1 or E2E_TEST=1 is set (i.e., during automated tests)
+#   2. The environment variable NOT_BEHIND_PROXY=1 is set (to explicitly disable ProxyFix)
+#
+# This ensures ProxyFix is not active during tests (to avoid interfering with test routing),
+# but is always active in normal development and production unless explicitly disabled.
+testing = os.environ.get("FLASK_TESTING") == "1" or os.environ.get("E2E_TEST") == "1"
+not_behind_proxy = os.environ.get("NOT_BEHIND_PROXY") == "1"
+if not testing and not not_behind_proxy:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Models
 class Location(db.Model):
