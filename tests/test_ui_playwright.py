@@ -57,16 +57,16 @@ def test_signup_login_invite_flow(flask_server):
             print(f"[DEBUG] /login response body: {resp.text()}")
         except Exception:
             print("[DEBUG] Could not read /login response body.")
-        # Step 4: Wait for navigation or dashboard heading
-        page.wait_for_load_state()
-        try:
-            login_error = page.inner_text('#loginError')
-        except Exception:
-            pass
-        # Step 5: Assert that the Family Dashboard heading is visible
+        # Step 4: Wait for dashboard heading (robust wait for post-login UI)
+        page.wait_for_url(f"{base_url}/family", timeout=10000)
+        page.wait_for_selector('h1, h2, h3, h4, h5, h6:has-text("Family Dashboard")', timeout=5000)
+        from tests.screenshot_utils import save_screenshot_with_timestamp
+        save_screenshot_with_timestamp(page, "tests/evidence/signup_login_dashboard.png")
+        # Step 5: Optionally, check for family name in page content
         assert page.get_by_role("heading", name="Family Dashboard").is_visible(), "Did not find Family Dashboard after login!"
-        # Step 6: Optionally, check for family name in page content
+        save_screenshot_with_timestamp(page, "tests/evidence/signup_login_dashboard_heading.png")
         assert "UITestFam" in page.content()
+        save_screenshot_with_timestamp(page, "tests/evidence/signup_login_family_name.png")
         browser.close()
 
 def test_base_nav_ui(flask_server):
@@ -358,12 +358,22 @@ def test_shopping_list_mobile_responsive(flask_server):
         page.screenshot(path="tests/evidence/shopping_list_aisle_column_correct.png", full_page=True)
         # Mark as bought
         bought_btn.click()
-        page.wait_for_timeout(500)
+        # Wait for strikethrough to appear on the row (robust wait)
+        first_row_handle = first_row.element_handle()
+        page.wait_for_function(
+            "el => el && el.innerHTML.includes('text-decoration-line-through')",
+            arg=first_row_handle,
+            timeout=3000
+        )
+        from tests.screenshot_utils import save_screenshot_with_timestamp
+        save_screenshot_with_timestamp(page, "tests/evidence/shopping_list_item_bought.png")
         # Should now show as checked
         assert "text-decoration-line-through" in first_row.inner_html(), "Item not marked as bought after click"
         # Delete the item
         delete_btn.click()
-        page.wait_for_timeout(500)
+        # Wait for empty shopping list message
+        page.wait_for_selector('.alert-info', timeout=3000)
+        save_screenshot_with_timestamp(page, "tests/evidence/shopping_list_empty_message.png")
         # Should show empty shopping list message
         assert page.locator('.alert-info').inner_text().strip().startswith("No items on your shopping list"), "Shopping list not empty after deleting item"
         browser.close()
@@ -392,14 +402,20 @@ def test_store_add_and_duplicate_ui(flask_server):
         page.fill('input[name="name"]', store_name)
         # The submit button is: <button class="btn btn-primary">Add</button>
         page.get_by_role("button", name="Add").click()
-        page.wait_for_timeout(500)
+        # Wait for store to appear in the table
+        page.wait_for_selector('table tr td', timeout=3000)
+        from tests.screenshot_utils import save_screenshot_with_timestamp
+        save_screenshot_with_timestamp(page, "tests/evidence/store_add_success.png")
         # Store should appear in the table, title-cased
         store_row = page.locator('table tr td').filter(has_text="Walmart")
         assert store_row.count() > 0, "Store 'Walmart' not found in UI after add."
+        save_screenshot_with_timestamp(page, "tests/evidence/store_add_verify.png")
         # Try to add duplicate
         page.fill('input[name="name"]', store_name)
         page.get_by_role("button", name="Add").click()
-        page.wait_for_timeout(500)
+        # Wait for error message about duplicate store
+        page.wait_for_selector('.alert-danger, .invalid-feedback', timeout=3000)
+        save_screenshot_with_timestamp(page, "tests/evidence/store_duplicate_error.png")
         # Should see error message about duplicate store
         error_alert = page.locator('.alert-danger, .invalid-feedback').filter(has_text="already exists")
         assert error_alert.count() > 0, "Duplicate store error not shown in UI."
