@@ -1,4 +1,9 @@
 import os
+import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Ensure instance folder exists before DB setup (for production/non-test use)
 instance_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance')
@@ -10,7 +15,7 @@ if os.environ.get('FLASK_TESTING') == '1':
 else:
     testing_mode = False
 
-from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError, Schema, fields
@@ -26,7 +31,11 @@ app = Flask(__name__)
 if testing_mode:
     app.config['TESTING'] = True
 print('FLASK APP STARTED: TESTING =', app.config.get('TESTING'), 'ENV =', dict(os.environ))
-app.config['SECRET_KEY'] = 'secret_key_here'
+
+# Use environment variables with sensible defaults for development
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev_secret_key_CHANGE_IN_PRODUCTION')
+app.config['SECURITY_PASSWORD_SALT'] = os.environ.get('SECURITY_PASSWORD_SALT', 'dev_password_salt_CHANGE_IN_PRODUCTION')
+
 # Use persistent DB for normal app, special test DB for E2E, in-memory for unit tests
 if os.environ.get('E2E_TEST') == '1':
     db_path = os.environ.get('TEST_DB_PATH', os.path.abspath('test.db'))
@@ -40,19 +49,67 @@ else:
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     print(f"[DEBUG] PROD SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECURITY_PASSWORD_SALT'] = 'change_this_salt'
 
 # --- Flask-Mail Setup ---
-app.config['MAIL_SERVER'] = 'localhost'  # Change to real SMTP for production
-app.config['MAIL_PORT'] = 8025           # Dummy port for local dev
-app.config['MAIL_DEFAULT_SENDER'] = 'noreply@localhost'
-app.config['MAIL_SUPPRESS_SEND'] = True  # Suppress sending in tests
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'localhost')  # Change to real SMTP for production
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', '8025'))      # Dummy port for local dev
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@localhost')
+app.config['MAIL_SUPPRESS_SEND'] = os.environ.get('MAIL_SUPPRESS_SEND', 'True').lower() == 'true'  # Suppress sending in tests
+
+# Mailjet configuration for password reset
+app.config['MAILJET_API_KEY'] = os.environ.get('MAILJET_API_KEY')
+app.config['MAILJET_SECRET_KEY'] = os.environ.get('MAILJET_SECRET_KEY')
+app.config['MAILJET_SENDER_EMAIL'] = os.environ.get('MAILJET_SENDER_EMAIL', 'noreply@homeinventory.app')
+app.config['MAILJET_SENDER_NAME'] = os.environ.get('MAILJET_SENDER_NAME', 'Home Inventory App')
 
 db = SQLAlchemy(app)
 mail = Mail(app)
 
-# Token serializer for invitations
+# Setup Mailjet client for password reset emails
+from mailjet_rest import Client
+mailjet = Client(auth=(app.config['MAILJET_API_KEY'], app.config['MAILJET_SECRET_KEY']), version='v3.1')
+
+# Environment variable validation function
+def validate_env_vars():
+    """Validate that required environment variables are set"""
+    required_vars = []
+    warnings = []
+    
+    # Always warn about these in any environment
+    if os.environ.get('FLASK_SECRET_KEY') == 'dev_secret_key_CHANGE_IN_PRODUCTION':
+        warnings.append('FLASK_SECRET_KEY is using the default development value')
+    
+    if os.environ.get('SECURITY_PASSWORD_SALT') == 'dev_password_salt_CHANGE_IN_PRODUCTION':
+        warnings.append('SECURITY_PASSWORD_SALT is using the default development value')
+    
+    # In production, require Mailjet credentials
+    if not app.config.get('TESTING') and not app.config.get('DEBUG') and not os.environ.get('FLASK_ENV') == 'development':
+        if not os.environ.get('MAILJET_API_KEY'):
+            required_vars.append('MAILJET_API_KEY')
+        if not os.environ.get('MAILJET_SECRET_KEY'):
+            required_vars.append('MAILJET_SECRET_KEY')
+    
+    # Print warnings
+    if warnings:
+        print('\nWARNING: Environment configuration issues detected:')
+        for warning in warnings:
+            print(f'  - {warning}')
+        print('These should be fixed before deploying to production.\n')
+    
+    # Raise error for missing required variables
+    if required_vars:
+        error_msg = f"\nERROR: Missing required environment variables: {', '.join(required_vars)}\n"
+        error_msg += "Please create a .env file based on .env.sample with your configuration.\n"
+        error_msg += "For local development, you can copy .env.sample to .env and modify it.\n"
+        raise EnvironmentError(error_msg)
+
+# Token serializer for invitations and password resets
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+# Validate environment variables
+# Skip validation in test mode to avoid breaking tests
+if not app.config.get('TESTING'):
+    validate_env_vars()
 
 # --- Flask-Login Setup ---
 login_manager = LoginManager()
@@ -71,6 +128,61 @@ testing = os.environ.get("FLASK_TESTING") == "1" or os.environ.get("E2E_TEST") =
 not_behind_proxy = os.environ.get("NOT_BEHIND_PROXY") == "1"
 if not testing and not not_behind_proxy:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+# Password reset helper functions
+def generate_password_reset_token(email):
+    """Generate a timed token for password reset"""
+    return serializer.dumps(email, salt='password-reset-salt')
+
+def verify_password_reset_token(token, expiration=3600):
+    """Verify the password reset token"""
+    try:
+        email = serializer.loads(token, salt='password-reset-salt', max_age=expiration)
+        return email
+    except Exception as e:
+        print(f"Token verification error: {e}")
+        return None
+
+def send_password_reset_email(user_email, reset_url):
+    """Send password reset email using Mailjet"""
+    try:
+        print(f"Attempting to send password reset email to: {user_email}")
+        print(f"Password reset URL: {reset_url}")
+        print(f"Using sender email: {app.config['MAILJET_SENDER_EMAIL']}")
+        
+        data = {
+            'Messages': [
+                {
+                    'From': {
+                        'Email': app.config['MAILJET_SENDER_EMAIL'],
+                        'Name': app.config['MAILJET_SENDER_NAME']
+                    },
+                    'To': [{'Email': user_email}],
+                    'Subject': 'Reset Your Password',
+                    'HTMLPart': render_template('email/reset_password.html', reset_url=reset_url),
+                    'TextPart': render_template('email/reset_password.txt', reset_url=reset_url)
+                }
+            ]
+        }
+        
+        print(f"Sending email via Mailjet API...")
+        response = mailjet.send.create(data=data)
+        print(f"Mailjet API response status code: {response.status_code}")
+        
+        if response.status_code == 200:
+            print(f"Email sent successfully to {user_email}")
+            json_response = response.json()
+            print(f"Mailjet message ID: {json_response.get('Messages', [{}])[0].get('To', [{}])[0].get('MessageID', 'Unknown')}")
+            return True
+        else:
+            print(f"Failed to send email. Mailjet response: {response.status_code}")
+            print(f"Response body: {response.json()}")
+            return False
+    except Exception as e:
+        print(f"Error sending password reset email: {e}")
+        import traceback
+        print(traceback.format_exc())
+        return False
 
 # Models
 class Location(db.Model):
@@ -635,6 +747,59 @@ def login():
     login_user(user)
     return jsonify({'success': True, 'user_id': user.id})
 
+@app.route('/reset-password-request', methods=['GET', 'POST'])
+def reset_password_request():
+    """Handle password reset request"""
+    if current_user.is_authenticated:
+        return redirect(url_for('web_family'))
+    
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            token = generate_password_reset_token(user.email)
+            reset_url = url_for('reset_password', token=token, _external=True)
+            send_result = send_password_reset_email(user.email, reset_url)
+            # Always show success even if email fails (to prevent email enumeration)
+            return render_template('reset_password_request.html', submitted=True)
+    
+    return render_template('reset_password_request.html')
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Handle password reset form"""
+    if current_user.is_authenticated:
+        return redirect(url_for('web_family'))
+    
+    email = verify_password_reset_token(token)
+    if not email:
+        flash('The password reset link is invalid or has expired.', 'danger')
+        return redirect(url_for('auth_page'))
+    
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('auth_page'))
+    
+    if request.method == 'POST':
+        password = request.form.get('password')
+        password_confirm = request.form.get('password_confirm')
+        
+        if not password or not password_confirm:
+            flash('Password is required.', 'danger')
+            return render_template('reset_password.html', token=token)
+            
+        if password != password_confirm:
+            flash('Passwords do not match.', 'danger')
+            return render_template('reset_password.html', token=token)
+        
+        user.password_hash = generate_password_hash(password)
+        db.session.commit()
+        flash('Your password has been reset successfully. You can now log in.', 'success')
+        return redirect(url_for('auth_page'))
+    
+    return render_template('reset_password.html', token=token)
+
 @app.route('/logout', methods=['POST'])
 @login_required
 def logout():
@@ -1104,7 +1269,8 @@ def web_delete_shopping_list_item(sli_id):
 
 @app.route('/auth')
 def auth_page():
-    return render_template('auth.html')
+    reset_success = request.args.get('reset_success')
+    return render_template('auth.html', reset_success=reset_success)
 
 @app.route('/family')
 @login_required

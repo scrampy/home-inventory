@@ -55,3 +55,8 @@ coverage.xml
 
 # Windows
 Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.*.local
