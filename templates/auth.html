@@ -12,6 +12,11 @@
     </ul>
     <div class="tab-content" id="authTabsContent">
       <div class="tab-pane fade{% if not invite_token %} show active{% endif %}" id="login" role="tabpanel">
+        {% if reset_success %}
+          <div class="alert alert-success mb-3">
+            Your password has been reset successfully. You can now log in with your new password.
+          </div>
+        {% endif %}
         <form id="loginForm" method="post">
           <div class="mb-3">
             <label for="loginEmail" class="form-label">Email</label>
@@ -22,6 +27,9 @@
             <input type="password" class="form-control" id="loginPassword" name="password" required>
           </div>
           <button class="btn btn-primary w-100" type="submit">Login</button>
+          <div class="text-center mt-2">
+            <a href="{{ url_for('reset_password_request') }}" class="text-decoration-none">Forgot Password?</a>
+          </div>
           <div id="loginError" class="alert alert-danger mt-3 d-none"></div>
         </form>
       </div>
