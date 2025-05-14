@@ -4,6 +4,7 @@ import os
 import socket
 import sqlite3
 from urllib.parse import urljoin
+from tests.screenshot_utils import save_screenshot_with_timestamp
 
 def debug_port_5000_state(phase):
     print(f"[DEBUG] {phase}: Checking port 5000...")
@@ -50,24 +51,20 @@ def test_role_management_ui(flask_server):
             debug_list_users("before admin signup UI")
             # Admin signup
             page.goto(urljoin(base_url, "/auth"))
-            page.wait_for_timeout(2000)
+            page.wait_for_selector("#signup-tab", state="visible")
             page.click("#signup-tab")
-            page.wait_for_timeout(2000)
             page.wait_for_selector("#signup", state="visible")
-            page.wait_for_timeout(2000)
             page.wait_for_selector("#signupForm", state="visible")
-            page.wait_for_timeout(2000)
             # Print signup tab visibility and display style
             signup_tab_visible = page.is_visible("#signup")
             print('DEBUG: #signup tab is_visible:', signup_tab_visible, flush=True)
             signup_tab_display = page.evaluate("window.getComputedStyle(document.querySelector('#signup')).display")
             print('DEBUG: #signup tab display style:', signup_tab_display, flush=True)
-            # Print full page content before interacting with fields
             print('DEBUG: FULL PAGE HTML before field interaction:', page.content(), flush=True)
-            page.wait_for_timeout(2000)
-            # Wait for any tab transitions/animations to finish
-            page.wait_for_timeout(2000)
             # Ensure fields are editable BEFORE filling
+            page.wait_for_selector("#signupEmail:enabled")
+            page.wait_for_selector("#signupPassword:enabled")
+            page.wait_for_selector("#signupFamilyName:enabled")
             signup_email_editable = page.is_editable("#signupEmail")
             signup_password_editable = page.is_editable("#signupPassword")
             signup_family_editable = page.is_editable("#signupFamilyName")
@@ -77,35 +74,22 @@ def test_role_management_ui(flask_server):
             assert signup_email_editable, 'signupEmail field is not editable!'
             assert signup_password_editable, 'signupPassword field is not editable!'
             assert signup_family_editable, 'signupFamily field is not editable!'
-            page.wait_for_timeout(2000)
-            # List users before submitting signup form
             debug_list_users("before admin signup form submit")
-            # Take screenshot before fill
-            page.screenshot(path="/app/debug_signup_before_fill.png")
-            page.wait_for_timeout(2000)
+            save_screenshot_with_timestamp(page, "/app/debug_signup_before_fill.png")
             # Immediately fill fields after editability check, using force=True
             page.fill("#signupEmail", "admin2@example.com", force=True)
-            page.wait_for_timeout(2000)
             page.fill("#signupPassword", "pw1234", force=True)
-            page.wait_for_timeout(2000)
             page.fill("#signupFamilyName", "RoleFamUI", force=True)
-            page.wait_for_timeout(2000)
             # Collect browser console logs before submit
             logs = page.evaluate("window._collectedLogs || []")
             print('DEBUG: browser console logs before submit:', logs, flush=True)
             page.click("#signupForm button[type=submit]")
-            page.wait_for_timeout(2000)
-            # Collect browser console logs after submit
-            logs = page.evaluate("window._collectedLogs || []")
-            print('DEBUG: browser console logs after submit:', logs, flush=True)
-            # List users after submitting signup form
-            debug_list_users("after admin signup form submit")
+            # Wait for navigation or error
             try:
-                page.wait_for_url(urljoin(base_url, "**/family"), timeout=15000)
+                page.wait_for_url(urljoin(base_url, "**/family"), timeout=5000)
             except Exception:
                 print('DEBUG signup page content:', page.content(), flush=True)
                 print('DEBUG signup error text:', page.inner_text("#signupError"), flush=True)
-                # DEBUG: Check if user now exists after failed signup
                 import sqlite3
                 import os as _os
                 db_path = _os.path.join(_os.path.dirname(__file__), '../instance/test.db')
@@ -114,85 +98,61 @@ def test_role_management_ui(flask_server):
                         cur = conn.cursor()
                         cur.execute("SELECT email FROM user WHERE email=?", ("admin2@example.com",))
                         rows = cur.fetchall()
-                        print("DEBUG: Users with email admin2@example.com after signup:", rows, flush=True)
+                        print('DEBUG: admin2@example.com in DB after failed signup:', rows, flush=True)
                 else:
                     print("DEBUG: test.db does not exist after signup", flush=True)
                 raise
-            page.wait_for_timeout(2000)
-            debug_port_5000_state("After admin signup")
-            page.wait_for_timeout(2000)
-            # Invite a member via UI only
             page.wait_for_selector("#inviteForm", state="visible")
-            page.wait_for_timeout(2000)
+            save_screenshot_with_timestamp(page, "tests/evidence/role_ui_admin_signup_success.png")
             page.fill("#inviteEmail", "member2@example.com", force=True)
-            page.wait_for_timeout(2000)
             page.click("#inviteForm button[type=submit]")
-            page.wait_for_timeout(2000)
             page.wait_for_selector("#inviteMsg:not(.d-none)")
-            page.wait_for_timeout(2000)
             invite_msg = page.inner_text("#inviteMsg")
+            save_screenshot_with_timestamp(page, "tests/evidence/role_ui_invite_token_displayed.png")
             import re
             match = re.search(r'Token: ([\w\.-]+)', invite_msg)
             if not match:
-                print('DEBUG inviteMsg:', invite_msg)
                 print('DEBUG page content:', page.content())
             assert match, f"Invite token not found in message: {invite_msg}"
             token = match.group(1)
-            page.wait_for_timeout(2000)
             debug_port_5000_state("After invite token")
-            page.wait_for_timeout(2000)
             # Simulate member accepting invite and signing up
             page.goto(urljoin(base_url, f"/invite/accept?token={token}"))
-            page.wait_for_timeout(2000)
             page.wait_for_url(urljoin(base_url, f"/invite/accept?token={token}"))
-            page.wait_for_timeout(2000)
+            page.wait_for_selector("#signup-tab", state="visible")
             page.click("#signup-tab")
-            page.wait_for_timeout(2000)
             page.wait_for_selector("#signup", state="visible")
-            page.wait_for_timeout(2000)
             page.wait_for_selector("#signupForm", state="visible")
-            page.wait_for_timeout(2000)
+            page.wait_for_selector("#signupEmail:enabled")
+            page.wait_for_selector("#signupPassword:enabled")
+            page.wait_for_selector("#signupInvite:enabled")
             page.fill("#signupEmail", "member2@example.com", force=True)
-            page.wait_for_timeout(2000)
             page.fill("#signupPassword", "pw1234", force=True)
-            page.wait_for_timeout(2000)
             page.fill("#signupInvite", token, force=True)
-            page.wait_for_timeout(2000)
             page.click("#signupForm button[type=submit]")
-            page.wait_for_timeout(2000)
-            page.wait_for_url(urljoin(base_url, "**/family"))
-            page.wait_for_timeout(2000)
+            page.wait_for_url(urljoin(base_url, "**/family"), timeout=5000)
+            save_screenshot_with_timestamp(page, "tests/evidence/role_ui_member_signup_success.png")
             debug_port_5000_state("After member signup")
-            page.wait_for_timeout(2000)
+            page.wait_for_selector("text=Logout", state="visible")
             page.click("text=Logout")
-            page.wait_for_timeout(2000)
-            page.wait_for_url(urljoin(base_url, "**/auth"))
-            page.wait_for_timeout(2000)
+            page.wait_for_url(urljoin(base_url, "**/auth"), timeout=5000)
             # Login as admin
+            page.wait_for_selector("#loginEmail:enabled")
             page.fill("#loginEmail", "admin2@example.com", force=True)
-            page.wait_for_timeout(2000)
+            page.wait_for_selector("#loginPassword:enabled")
             page.fill("#loginPassword", "pw1234", force=True)
-            page.wait_for_timeout(2000)
             page.click("#loginForm button[type=submit]")
-            page.wait_for_timeout(2000)
-            page.wait_for_url(urljoin(base_url, "**/family"))
-            page.wait_for_timeout(2000)
+            page.wait_for_url(urljoin(base_url, "**/family"), timeout=5000)
+            save_screenshot_with_timestamp(page, "tests/evidence/role_ui_admin_relogin_success.png")
             debug_port_5000_state("After admin re-login")
-            page.wait_for_timeout(2000)
-            # Promote member to admin
-            page.wait_for_selector(".promote-btn")
-            page.wait_for_timeout(2000)
+            page.wait_for_selector(".promote-btn", state="visible")
             page.click(".promote-btn")
-            page.wait_for_timeout(2000)
             assert "Admin" in page.content() or "admin" in page.content()
-            page.wait_for_timeout(2000)
-            # Demote member back to member
-            page.wait_for_selector(".demote-btn")
-            page.wait_for_timeout(2000)
+            save_screenshot_with_timestamp(page, "tests/evidence/role_ui_member_promoted_to_admin.png")
+            page.wait_for_selector(".demote-btn", state="visible")
             page.click(".demote-btn")
-            page.wait_for_timeout(2000)
             assert "Member" in page.content() or "member" in page.content()
-            page.wait_for_timeout(2000)
+            save_screenshot_with_timestamp(page, "tests/evidence/role_ui_member_demoted_to_member.png")
         finally:
             browser.close()
             debug_port_5000_state("Test end")
