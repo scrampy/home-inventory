@@ -145,11 +145,31 @@ def verify_password_reset_token(token, expiration=3600):
 
 def send_password_reset_email(user_email, reset_url):
     """Send password reset email using Mailjet"""
+    result_info = {
+        'success': False,
+        'error': None,
+        'details': {}
+    }
+    
     try:
-        print(f"Attempting to send password reset email to: {user_email}")
-        print(f"Password reset URL: {reset_url}")
-        print(f"Using sender email: {app.config['MAILJET_SENDER_EMAIL']}")
+        print(f"\n===== PASSWORD RESET EMAIL ATTEMPT =====")
+        print(f"Timestamp: {datetime.now().isoformat()}")
+        print(f"Recipient: {user_email}")
+        print(f"Reset URL: {reset_url}")
+        print(f"Environment: FLASK_ENV={os.environ.get('FLASK_ENV', 'not set')}")
+        print(f"Debug mode: {app.config.get('DEBUG', False)}")
         
+        # Check if Mailjet credentials are configured
+        if not app.config.get('MAILJET_API_KEY') or not app.config.get('MAILJET_SECRET_KEY'):
+            error_msg = "Mailjet API credentials not configured"
+            print(f"ERROR: {error_msg}")
+            result_info['error'] = error_msg
+            return False
+            
+        print(f"Sender email: {app.config['MAILJET_SENDER_EMAIL']}")
+        print(f"Sender name: {app.config['MAILJET_SENDER_NAME']}")
+        
+        # Prepare email data
         data = {
             'Messages': [
                 {
@@ -167,22 +187,42 @@ def send_password_reset_email(user_email, reset_url):
         
         print(f"Sending email via Mailjet API...")
         response = mailjet.send.create(data=data)
+        result_info['details']['status_code'] = response.status_code
         print(f"Mailjet API response status code: {response.status_code}")
         
         if response.status_code == 200:
             print(f"Email sent successfully to {user_email}")
             json_response = response.json()
-            print(f"Mailjet message ID: {json_response.get('Messages', [{}])[0].get('To', [{}])[0].get('MessageID', 'Unknown')}")
+            message_id = json_response.get('Messages', [{}])[0].get('To', [{}])[0].get('MessageID', 'Unknown')
+            result_info['details']['message_id'] = message_id
+            print(f"Mailjet message ID: {message_id}")
+            result_info['success'] = True
             return True
         else:
-            print(f"Failed to send email. Mailjet response: {response.status_code}")
-            print(f"Response body: {response.json()}")
+            error_msg = f"Failed to send email. Mailjet response: {response.status_code}"
+            print(error_msg)
+            try:
+                response_body = response.json()
+                print(f"Response body: {response_body}")
+                result_info['details']['response_body'] = response_body
+            except Exception as json_err:
+                print(f"Could not parse response JSON: {json_err}")
+                result_info['details']['response_content'] = str(response.content)
+            
+            result_info['error'] = error_msg
             return False
     except Exception as e:
-        print(f"Error sending password reset email: {e}")
+        error_msg = f"Error sending password reset email: {e}"
+        print(error_msg)
         import traceback
-        print(traceback.format_exc())
+        traceback_text = traceback.format_exc()
+        print(traceback_text)
+        result_info['error'] = error_msg
+        result_info['details']['traceback'] = traceback_text
         return False
+    finally:
+        print("===== END PASSWORD RESET EMAIL ATTEMPT =====\n")
+        return result_info['success']
 
 # Models
 class Location(db.Model):
@@ -753,17 +793,29 @@ def reset_password_request():
     if current_user.is_authenticated:
         return redirect(url_for('web_family'))
     
+    # Check if debug mode is enabled (only in development)
+    debug_mode = request.args.get('debug') and (app.config.get('DEBUG') or os.environ.get('FLASK_ENV') == 'development')
+    debug_info = {}
+    
     if request.method == 'POST':
         email = request.form.get('email')
+        debug_info['email_submitted'] = email if debug_mode else None
+        
         user = User.query.filter_by(email=email).first()
+        debug_info['user_found'] = user is not None if debug_mode else None
+        
         if user:
             token = generate_password_reset_token(user.email)
             reset_url = url_for('reset_password', token=token, _external=True)
+            debug_info['reset_url'] = reset_url if debug_mode else None
+            
             send_result = send_password_reset_email(user.email, reset_url)
+            debug_info['email_sent'] = send_result if debug_mode else None
+            
             # Always show success even if email fails (to prevent email enumeration)
-            return render_template('reset_password_request.html', submitted=True)
+            return render_template('reset_password_request.html', submitted=True, debug_mode=debug_mode, debug_info=debug_info)
     
-    return render_template('reset_password_request.html')
+    return render_template('reset_password_request.html', debug_mode=debug_mode, debug_info=debug_info)
 
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
