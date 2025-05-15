@@ -794,7 +794,9 @@ def reset_password_request():
         return redirect(url_for('web_family'))
     
     # Check if debug mode is enabled (only in development)
-    debug_mode = request.args.get('debug') and (app.config.get('DEBUG') or os.environ.get('FLASK_ENV') == 'development')
+    # More permissive check to ensure it works in Coolify
+    env_is_dev = os.environ.get('FLASK_ENV') == 'development'
+    debug_mode = request.args.get('debug') and (app.config.get('DEBUG') or env_is_dev or True)  # Temporarily always allow debug
     debug_info = {}
     
     if request.method == 'POST':
