@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv(override=True)
 
-# Configuration
-BASE_URL = "http://localhost:5000"
+# Test configuration
 TEST_EMAIL = "scrampy@gmail.com"
 
 def get_csrf_token(html_content):
@@ -46,12 +45,14 @@ def get_csrf_token(html_content):
     logger.debug(f"HTML content: {html_content[:500]}...")
     return None
 
-def test_password_reset_request():
+def test_password_reset_request(flask_server):
+    # Use the flask_server fixture to get the base URL
+    base_url = flask_server
     """Test the password reset request functionality"""
     logger.info("Testing password reset request...")
     
     # Step 1: Get the reset password request page
-    response = requests.get(f"{BASE_URL}/reset-password-request")
+    response = requests.get(f"{base_url}/reset-password-request")
     if response.status_code != 200:
         logger.error(f"Failed to get reset password request page. Status code: {response.status_code}")
         return False
@@ -70,7 +71,7 @@ def test_password_reset_request():
         data['csrf_token'] = csrf_token
     
     response = requests.post(
-        f"{BASE_URL}/reset-password-request",
+        f"{base_url}/reset-password-request",
         data=data,
         allow_redirects=True
     )

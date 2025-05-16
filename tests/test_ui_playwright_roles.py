@@ -4,7 +4,7 @@ import os
 import socket
 import sqlite3
 from urllib.parse import urljoin
-from tests.screenshot_utils import save_screenshot_with_timestamp
+from .screenshot_utils import save_screenshot_with_timestamp
 
 def debug_port_5000_state(phase):
     print(f"[DEBUG] {phase}: Checking port 5000...")
