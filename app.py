@@ -15,7 +15,7 @@ if os.environ.get('FLASK_TESTING') == '1':
 else:
     testing_mode = False
 
-from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
+from flask import Flask, request, jsonify, render_template, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError, Schema, fields
@@ -27,10 +27,43 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-app = Flask(__name__)
-if testing_mode:
-    app.config['TESTING'] = True
-print('FLASK APP STARTED: TESTING =', app.config.get('TESTING'), 'ENV =', dict(os.environ))
+# Initialize extensions
+db = SQLAlchemy()
+
+def create_app():
+    app = Flask(__name__)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+    
+    # Load configuration
+    app.config.from_mapping(
+        SECRET_KEY=os.environ.get('FLASK_SECRET_KEY', 'dev'),
+        SQLALCHEMY_DATABASE_URI=os.environ.get('DATABASE_URL', 'sqlite:///homeinventory.db'),
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        SECURITY_PASSWORD_SALT=os.environ.get('SECURITY_PASSWORD_SALT', 'dev-salt'),
+        SESSION_COOKIE_SECURE=os.environ.get('FLASK_ENV') == 'production',
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE='Lax'
+    )
+    
+    if testing_mode:
+        app.config['TESTING'] = True
+    
+    print('FLASK APP STARTED: TESTING =', app.config.get('TESTING'), 'ENV =', dict(os.environ))
+    
+    # Initialize extensions with app
+    db.init_app(app)
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth_page'
+    mail = Mail()
+    mail.init_app(app)
+    
+    # API routes will be registered directly on the app
+    
+    return app
+
+# Create the Flask application
+app = create_app()
 
 # Use environment variables with sensible defaults for development
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev_secret_key_CHANGE_IN_PRODUCTION')
@@ -61,9 +94,6 @@ app.config['MAILJET_API_KEY'] = os.environ.get('MAILJET_API_KEY')
 app.config['MAILJET_SECRET_KEY'] = os.environ.get('MAILJET_SECRET_KEY')
 app.config['MAILJET_SENDER_EMAIL'] = os.environ.get('MAILJET_SENDER_EMAIL', 'noreply@homeinventory.app')
 app.config['MAILJET_SENDER_NAME'] = os.environ.get('MAILJET_SENDER_NAME', 'Home Inventory App')
-
-db = SQLAlchemy(app)
-mail = Mail(app)
 
 # Setup Mailjet client for password reset emails
 from mailjet_rest import Client
@@ -1408,6 +1438,18 @@ def test_debug_locations():
         'db_path': db_path,
         'locations': names
     }
+
+# API Routes
+@app.route('/api/shopping-list/count')
+@login_required
+def api_get_shopping_list_count():
+    """Get the count of items in the shopping list."""
+    count = db.session.query(ShoppingListItem).filter(
+        ShoppingListItem.family_id == current_user.family_id,
+        ShoppingListItem.checked == False
+    ).count()
+    
+    return jsonify({'count': count})
 
 if __name__ == '__main__':
     import sys

@@ -1,0 +1,258 @@
+<!-- Navigation Drawer -->
+<div class="nav-drawer">
+  <div class="nav-header">
+    <h3>Home Inventory</h3>
+    <button class="btn-close d-lg-none" id="closeNav"></button>
+  </div>
+  
+  <div class="nav-content">
+    <!-- Main Navigation -->
+    <nav id="sidebar" class="sidebar">
+      <div class="sidebar-header d-flex align-items-center">
+        <h3 class="mb-0">Home Inventory</h3>
+        <button id="sidebarCollapse" class="btn btn-link d-lg-none ms-auto">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      {% if current_user.is_authenticated %}
+      <div class="sidebar-content">
+        <!-- Home Section -->
+        <div class="nav-section">
+          <a href="{{ url_for('family_dashboard') }}" class="nav-link">
+            <i class="bi bi-house-door"></i>
+            <span>Home</span>
+          </a>
+          
+          <!-- Locations Section -->
+          <div class="nav-section">
+            <a href="#locationsSubmenu" data-bs-toggle="collapse" class="nav-link">
+              <i class="bi bi-geo-alt"></i>
+              <span>Locations</span>
+              <i class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul id="locationsSubmenu" class="collapse show">
+              <!-- Dynamically populated by JavaScript -->
+            </ul>
+          </div>
+          
+          <!-- Shopping List -->
+          <a href="{{ url_for('web_shopping_list') }}" class="nav-link">
+            <i class="bi bi-cart"></i>
+            <span>Shopping List</span>
+            <span id="shopping-list-count" class="badge bg-primary rounded-pill ms-auto">0</span>
+          </a>
+          
+          <!-- Manage Section -->
+          <div class="nav-section">
+            <a href="#manageSubmenu" data-bs-toggle="collapse" class="nav-link">
+              <i class="bi bi-gear"></i>
+              <span>Manage</span>
+              <i class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul id="manageSubmenu" class="collapse">
+              <li>
+                <a href="{{ url_for('web_aisles') }}" class="nav-link">
+                  <i class="bi bi-list-ul"></i>
+                  <span>Aisles</span>
+                </a>
+              </li>
+              <li>
+                <a href="{{ url_for('web_stores') }}" class="nav-link">
+                  <i class="bi bi-shop"></i>
+                  <span>Stores</span>
+                </a>
+              </li>
+              <li>
+                <a href="{{ url_for('web_master_items') }}" class="nav-link">
+                  <i class="bi bi-tags"></i>
+                  <span>Master Items</span>
+                </a>
+              </li>
+            </ul>
+          </div>
+          
+          <!-- Bottom Navigation -->
+          <div class="mt-auto">
+            <div class="nav-section">
+              <a href="{{ url_for('user_profile') }}" class="nav-link">
+                <i class="bi bi-person"></i>
+                <span>{{ current_user.email }}</span>
+              </a>
+              <a href="{{ url_for('logout') }}" class="nav-link">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Logout</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="sidebar-content">
+        <a href="{{ url_for('auth_page') }}" class="nav-link">
+          <i class="bi bi-box-arrow-in-right"></i>
+          <span>Login</span>
+        </a>
+      </div>
+      {% endif %}
+    </nav>
+
+    <!-- Page Content -->
+    <div id="content">
+      <!-- Top Navigation -->
+      <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+          <button id="sidebarToggle" class="btn btn-link">
+            <i class="bi bi-list"></i>
+          </button>
+          <div class="ms-auto">
+            <span class="navbar-text">
+              {% if current_user.is_authenticated %}
+                {{ current_user.email }}
+              {% else %}
+                Guest
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </nav>
+      
+      <!-- Main Content -->
+      <div class="container-fluid py-4">
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+
+    <!-- Initialize the sidebar and load dynamic content -->
+    <script>
+    // Wrap in IIFE to avoid polluting global scope
+    (function() {
+      'use strict';
+      
+      // Check authentication state from body data attribute
+      var isAuthenticated = document.body.getAttribute('data-authenticated') === 'true';
+      
+      // Define functions first
+      function initializeSidebar() {
+        var sidebar = document.getElementById('sidebar');
+        var sidebarToggle = document.getElementById('sidebarToggle');
+        var sidebarCollapse = document.getElementById('sidebarCollapse');
+        
+        if (sidebarToggle && sidebar) {
+          sidebarToggle.addEventListener('click', function() {
+            sidebar.classList.toggle('active');
+          });
+        }
+        
+        if (sidebarCollapse && sidebar) {
+          sidebarCollapse.addEventListener('click', function() {
+            sidebar.classList.remove('active');
+          });
+        }
+      }
+      
+      function setActiveNavLinks() {
+        var currentPath = window.location.pathname;
+        document.querySelectorAll('.nav-link').forEach(function(link) {
+          if (link.getAttribute('href') === currentPath) {
+            link.classList.add('active');
+            // Expand parent dropdown if exists
+            var parentCollapse = link.closest('.collapse');
+            if (parentCollapse) {
+              parentCollapse.classList.add('show');
+            }
+          }
+        });
+      }
+      
+      function loadLocations() {
+        var locationsList = document.getElementById('locationsSubmenu');
+        if (!locationsList) return;
+        
+        fetch('/locations')
+          .then(function(response) { 
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json(); 
+          })
+          .then(function(locations) {
+            locationsList.innerHTML = locations.map(function(location) {
+              return [
+                '<li>',
+                '  <a href="/inventory?location_id=', location.id, '" class="nav-link">',
+                '    <i class="bi bi-folder"></i>',
+                '    <span>', location.name, '</span>',
+                '    <span class="badge bg-secondary rounded-pill ms-auto">', 
+                '      ', location.items ? location.items.length : 0,
+                '    </span>',
+                '  </a>',
+                '</li>'
+              ].join('');
+            }).join('');
+          })
+          .catch(function(error) {
+            console.error('Error loading locations:', error);
+            if (locationsList) {
+              locationsList.innerHTML = '<li class="text-muted px-3">Unable to load locations</li>';
+            }
+          });
+      }
+      
+      function loadShoppingListCount() {
+        var countElement = document.getElementById('shopping-list-count');
+        if (!countElement) return;
+        
+        fetch('/api/shopping-list/count')
+          .then(function(response) { 
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json(); 
+          })
+          .then(function(data) {
+            if (countElement) {
+              countElement.textContent = data.count;
+              countElement.style.display = data.count > 0 ? 'inline-flex' : 'none';
+            }
+          })
+          .catch(function(error) {
+            console.error('Error loading shopping list count:', error);
+          });
+      }
+      
+      // Initialize the navigation when the DOM is fully loaded
+      document.addEventListener('DOMContentLoaded', function() {
+        initializeSidebar();
+        setActiveNavLinks();
+        
+        // Only load dynamic content if user is authenticated
+        if (isAuthenticated) {
+          loadLocations();
+          loadShoppingListCount();
+        }
+      });
+    });
+    </script>
+  </div>
+</div>
+
+<!-- Bottom Navigation -->
+<nav class="bottom-nav">
+  <a href="{{ url_for('index') }}" class="nav-link active">
+    <i class="bi bi-house"></i>
+    <span>Home</span>
+  </a>
+  <a href="#" class="nav-link" id="manageNavLink">
+    <i class="bi bi-gear"></i>
+    <span>Manage</span>
+  </a>
+  <a href="{{ url_for('web_shopping_list') }}" class="nav-link">
+    <i class="bi bi-cart"></i>
+    <span>Cart</span>
+    <span class="badge bg-primary rounded-pill shopping-list-count">0</span>
+  </a>
+  <a href="{{ url_for('user_profile') }}" class="nav-link">
+    <i class="bi bi-person"></i>
+    <span>Profile</span>
+  </a>
+</nav>
+
+<!-- Overlay for mobile -->
+<div class="overlay"></div>

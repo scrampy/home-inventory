@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Inventory - Bootstrap Navigation</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <style>
+    /* Custom styles to match the original design */
+    :root {
+      --primary-color: #121417;
+      --secondary-color: #677583;
+      --bg-light: #f8f9fa;
+      --border-light: #e9ecef;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      padding-bottom: 80px; /* Space for bottom nav */
+      background-color: white;
+    }
+    
+    /* Header */
+    .app-header {
+      border-bottom: 1px solid var(--border-light);
+      padding: 1rem;
+    }
+    
+    /* Location cards */
+    .location-card {
+      display: flex;
+      align-items: center;
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-light);
+      text-decoration: none;
+      color: var(--primary-color);
+      transition: background-color 0.2s;
+    }
+    
+    .location-card:hover {
+      background-color: var(--bg-light);
+    }
+    
+    .location-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      background-color: var(--bg-light);
+      border-radius: 0.5rem;
+      margin-right: 1rem;
+      flex-shrink: 0;
+    }
+    
+    .location-icon i {
+      font-size: 1.5rem;
+      color: var(--primary-color);
+    }
+    
+    .location-details {
+      flex-grow: 1;
+    }
+    
+    .location-name {
+      font-weight: 500;
+      margin: 0;
+      line-height: 1.2;
+    }
+    
+    .location-count {
+      color: var(--secondary-color);
+      font-size: 0.875rem;
+      margin: 0;
+    }
+    
+    /* Bottom navigation */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid var(--border-light);
+      padding: 0.5rem 0;
+      z-index: 1000;
+    }
+    
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-decoration: none;
+      color: var(--secondary-color);
+      padding: 0.5rem 0;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    
+    .nav-item i {
+      font-size: 1.5rem;
+      margin-bottom: 0.25rem;
+    }
+    
+    .nav-item.active {
+      color: var(--primary-color);
+    }
+    
+    /* Collapse indicators */
+    [data-bs-toggle="collapse"] .bi-chevron-right {
+      transition: transform 0.2s;
+    }
+    
+    [data-bs-toggle="collapse"][aria-expanded="true"] .bi-chevron-right {
+      transform: rotate(90deg);
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header d-flex justify-content-between align-items-center">
+    <h1 class="h5 mb-0 flex-grow-1 text-center">My Home</h1>
+    <button class="btn btn-link text-dark p-0">
+      <i class="bi bi-plus-lg fs-4"></i>
+    </button>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <!-- Location List -->
+    <div class="list-group list-group-flush">
+      <!-- Home (Parent) -->
+      <div class="location-card" data-bs-toggle="collapse" href="#homeLocations" role="button" aria-expanded="true">
+        <div class="location-icon">
+          <i class="bi bi-house"></i>
+        </div>
+        <div class="location-details">
+          <h2 class="location-name">Home</h2>
+          <p class="location-count mb-0">4 locations</p>
+        </div>
+        <i class="bi bi-chevron-down"></i>
+      </div>
+
+      <!-- Child Locations (Collapsible) -->
+      <div class="collapse show" id="homeLocations">
+        <!-- Cold Room -->
+        <a href="#" class="location-card ps-5">
+          <div class="location-icon">
+            <i class="bi bi-snow"></i>
+          </div>
+          <div class="location-details">
+            <h2 class="location-name">Cold Room</h2>
+            <p class="location-count mb-0">12 items</p>
+          </div>
+          <i class="bi bi-chevron-right"></i>
+        </a>
+
+        <!-- Kitchen Pantry -->
+        <a href="#" class="location-card ps-5">
+          <div class="location-icon">
+            <i class="bi bi-cupboard"></i>
+          </div>
+          <div class="location-details">
+            <h2 class="location-name">Kitchen Pantry</h2>
+            <p class="location-count mb-0">8 items</p>
+          </div>
+          <i class="bi bi-chevron-right"></i>
+        </a>
+
+        <!-- Basement Freezer -->
+        <a href="#" class="location-card ps-5">
+          <div class="location-icon">
+            <i class="bi bi-snow2"></i>
+          </div>
+          <div class="location-details">
+            <h2 class="location-name">Basement Freezer</h2>
+            <p class="location-count mb-0">15 items</p>
+          </div>
+          <i class="bi bi-chevron-right"></i>
+        </a>
+
+        <!-- Storage Room -->
+        <a href="#" class="location-card ps-5">
+          <div class="location-icon">
+            <i class="bi-box-seam"></i>
+          </div>
+          <div class="location-details">
+            <h2 class="location-name">Storage Room</h2>
+            <p class="location-count mb-0">22 items</p>
+          </div>
+          <i class="bi bi-chevron-right"></i>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <div class="container">
+      <div class="row text-center">
+        <div class="col">
+          <a href="#" class="nav-item active">
+            <i class="bi bi-house-fill"></i>
+            <span>Home</span>
+          </a>
+        </div>
+        <div class="col">
+          <a href="#" class="nav-item">
+            <i class="bi bi-list-check"></i>
+            <span>Lists</span>
+          </a>
+        </div>
+        <div class="col">
+          <a href="#" class="nav-item">
+            <i class="bi bi-book"></i>
+            <span>Recipes</span>
+          </a>
+        </div>
+        <div class="col">
+          <a href="#" class="nav-item">
+            <i class="bi bi-gear"></i>
+            <span>Settings</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Bootstrap JS Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Initialize Bootstrap components
+    document.addEventListener('DOMContentLoaded', function() {
+      // Add click handler for location items
+      document.querySelectorAll('.location-card[data-bs-toggle="collapse"]').forEach(card => {
+        card.addEventListener('click', function(e) {
+          // Don't toggle if clicking on a link inside the card
+          if (e.target.tagName === 'A' || e.target.closest('a')) {
+            return;
+          }
+          // Let Bootstrap handle the collapse
+        });
+      });
+    });
+  </script>
+</body>
+</html>
