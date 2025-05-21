@@ -21,11 +21,22 @@ from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError, Schema, fields
 from datetime import datetime
 import random
+import json
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user, UserMixin
 from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.middleware.proxy_fix import ProxyFix
+
+# Import routes
+try:
+    from routes.auth import auth_bp
+    from routes.web import web_bp
+    from routes.user import user_bp
+    from routes.family import family_bp
+    HAS_ROUTE_MODULES = True
+except ImportError:
+    HAS_ROUTE_MODULES = False
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -58,12 +69,43 @@ def create_app():
     mail = Mail()
     mail.init_app(app)
     
-    # API routes will be registered directly on the app
+    # Register blueprints if available
+    if HAS_ROUTE_MODULES:
+        # API blueprint has been removed as we integrated the endpoints directly into app.py
+        print('Route modules available')
     
     return app
 
 # Create the Flask application
 app = create_app()
+
+# Add context processor to include locations in all templates
+@app.context_processor
+def inject_locations():
+    if current_user.is_authenticated:
+        try:
+            family_id = get_current_family_id()
+            locs = Location.query.filter_by(family_id=family_id).order_by(Location.name).all()
+            
+            # Get locations with schema
+            result = locations_schema.dump(locs)
+            
+            # Add item count for each location
+            for loc_data in result:
+                # Get item count for this location
+                item_count = db.session.query(db.func.count(Inventory.id)).filter(
+                    Inventory.location_id == loc_data['id'],
+                    Inventory.family_id == family_id
+                ).scalar() or 0
+                
+                # Add item count to the location data
+                loc_data['item_count'] = item_count
+            
+            return {'nav_locations': result}
+        except Exception as e:
+            print(f"Error in context processor: {e}")
+            return {'nav_locations': []}
+    return {'nav_locations': []}
 
 # Use environment variables with sensible defaults for development
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev_secret_key_CHANGE_IN_PRODUCTION')
@@ -444,8 +486,23 @@ def ensure_tables():
 @login_required
 def get_locations():
     family_id = get_current_family_id()
-    locs = Location.query.filter_by(family_id=family_id).all()
-    return jsonify(locations_schema.dump(locs))
+    locs = Location.query.filter_by(family_id=family_id).order_by(Location.name).all()
+    
+    # Get the locations with schema
+    result = locations_schema.dump(locs)
+    
+    # Add item count for each location
+    for loc_data in result:
+        # Get item count for this location
+        item_count = db.session.query(db.func.count(Inventory.id)).filter(
+            Inventory.location_id == loc_data['id'],
+            Inventory.family_id == family_id
+        ).scalar() or 0
+        
+        # Add item count to the location data
+        loc_data['item_count'] = item_count
+    
+    return jsonify(result)
 
 @app.route('/locations', methods=['POST'])
 @login_required
@@ -732,17 +789,6 @@ def seed():
         qty = random.randint(0, 5)
         db.session.add(Inventory(location_id=loc.id, master_item_id=item.id, quantity=qty))
     db.session.commit()
-
-    # Seed demo shopping list items
-    milk = MasterItem.query.filter_by(name='Milk').first()
-    bread = MasterItem.query.filter_by(name='Bread').first()
-    store = Store.query.filter_by(name='Kroger').first()
-    if milk and not ShoppingListItem.query.filter_by(item_id=milk.id).first():
-        sli = ShoppingListItem(item_id=milk.id, checked=False)
-        db.session.add(sli)
-    if bread and not ShoppingListItem.query.filter_by(item_id=bread.id).first():
-        sli2 = ShoppingListItem(item_id=bread.id, checked=True)
-        db.session.add(sli2)
     db.session.commit()
     return 'Database seeded!', 201
 
@@ -1450,6 +1496,39 @@ def api_get_shopping_list_count():
     ).count()
     
     return jsonify({'count': count})
+
+# The locations endpoint is already implemented elsewhere in the application
+
+# Test route for new navigation component
+@app.route('/test-new-navigation')
+def test_new_navigation():
+    return render_template('test_new_navigation.html')
+
+# Debug route to check locations data
+@app.route('/debug-locations')
+@login_required
+def debug_locations():
+    family_id = get_current_family_id()
+    locs = Location.query.filter_by(family_id=family_id).order_by(Location.name).all()
+    
+    # Get the locations with schema
+    result = locations_schema.dump(locs)
+    
+    # Add item count for each location
+    for loc_data in result:
+        # Get item count for this location
+        item_count = db.session.query(db.func.count(Inventory.id)).filter(
+            Inventory.location_id == loc_data['id'],
+            Inventory.family_id == family_id
+        ).scalar() or 0
+        
+        # Add item count to the location data
+        loc_data['item_count'] = item_count
+    
+    # Return as HTML for easy debugging
+    html = '<h1>Locations Debug</h1>'
+    html += '<pre>' + json.dumps(result, indent=2) + '</pre>'
+    return html
 
 if __name__ == '__main__':
     import sys

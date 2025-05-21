@@ -2,16 +2,7 @@
 {% block content %}
 <h2>Inventory{% if selected_location %} for {{ selected_location.name }}{% endif %}</h2>
 
-<form method="get" class="mb-3" id="locationForm">
-  <div class="input-group">
-    <select name="location_id" class="form-select" required onchange="document.getElementById('locationForm').submit();">
-      <option value="">Select Location</option>
-      {% for loc in locations %}
-      <option value="{{ loc.id }}" {% if loc.id == selected_location_id %}selected{% endif %}>{{ loc.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
-</form>
+<!-- Location selection now handled by the left navigation menu -->
 
 {% if selected_location %}
 <hr>

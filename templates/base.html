@@ -5,36 +5,414 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Home Inventory</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <style>
+    /* Navigation Styles */
+    .nav-drawer {
+      height: 100vh;
+      width: 280px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 1000;
+      background-color: #f8f9fa;
+      border-right: 1px solid #dee2e6;
+      transition: all 0.3s;
+    }
+    
+    .nav-header {
+      padding: 1rem;
+      border-bottom: 1px solid #dee2e6;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .nav-content {
+      display: flex;
+      flex-direction: column;
+      height: calc(100% - 70px);
+    }
+    
+    .sidebar {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .sidebar-header {
+      padding: 1rem;
+      border-bottom: 1px solid #dee2e6;
+    }
+    
+    .sidebar-content {
+      padding: 1rem 0;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    
+    .nav-section {
+      margin-bottom: 1rem;
+    }
+    
+    .nav-link {
+      padding: 0.5rem 1rem;
+      display: flex;
+      align-items: center;
+      color: #212529;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    
+    .nav-link:hover {
+      background-color: #e9ecef;
+    }
+    
+    .nav-link.active {
+      background-color: #e9ecef;
+      font-weight: bold;
+    }
+    
+    .nav-link i {
+      margin-right: 0.5rem;
+    }
+    
+    #content {
+      margin-left: 280px;
+      transition: all 0.3s;
+      width: calc(100% - 280px);
+      height: 100vh;
+      overflow-y: auto;
+    }
+    
+    /* Collapsed Sidebar Styles */
+    .nav-drawer.collapsed {
+      width: 70px;
+    }
+    
+    .nav-drawer.collapsed .nav-link span,
+    .nav-drawer.collapsed .bi-chevron-down {
+      display: none;
+    }
+    
+    .nav-drawer.collapsed .nav-link {
+      justify-content: center;
+      padding: 0.5rem;
+    }
+    
+    .nav-drawer.collapsed .nav-link i:not(.bi-chevron-down) {
+      margin-right: 0;
+      font-size: 1.2rem;
+    }
+    
+    #content.expanded {
+      margin-left: 70px;
+      width: calc(100% - 70px);
+    }
+    
+    /* Mobile Styles */
+    @media (max-width: 768px) {
+      .nav-drawer {
+        left: -280px;
+      }
+      
+      .nav-drawer.collapsed {
+        left: -70px;
+      }
+      
+      .nav-drawer.active {
+        left: 0;
+      }
+      
+      #content {
+        margin-left: 0;
+        width: 100%;
+      }
+    }
+
+    /* Form control fixes */
+    .form-control {
+      width: 100%;
+      display: block;
+    }
+
+    /* Input group fixes */
+    .input-group {
+      display: flex;
+      width: 100%;
+    }
+
+    /* Fix for tables */
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+    }
+  </style>
 </head>
-<body>
-  <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="{{ url_for('index') }}">Home Inventory</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNavDropdown">
-        <ul class="navbar-nav ms-auto">
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('web_locations') }}">Locations</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('web_master_items') }}">Master Items</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('web_inventory') }}">Inventory</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('web_stores') }}">Stores</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('web_aisles') }}">Aisles</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('web_shopping_list') }}">Shopping List</a></li>
-          {% if current_user.is_authenticated %}
-            <li class="nav-item"><span class="navbar-text ms-3 me-2">Logged in as {{ current_user.email }}</span></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('user_profile') }}">Profile</a></li>
-            <li class="nav-item"><a class="nav-link text-danger" href="/logout" onclick="event.preventDefault(); fetch('/logout', {method:'POST'}).then(() => window.location='/auth');">Logout</a></li>
-          {% else %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('auth_page') }}">Login</a></li>
-          {% endif %}
-        </ul>
+<body data-authenticated="{{ current_user.is_authenticated }}">
+  
+  <!-- Navigation Component -->
+  <div class="nav-drawer" id="navDrawer">
+    <div class="nav-header">
+      <div class="d-flex justify-content-between align-items-center">
+        <h3 class="mb-0 full-title">Home Inventory</h3>
+        <h3 class="mb-0 short-title" style="display: none;">HI</h3>
       </div>
     </div>
-  </nav>
-  <div class="container">
-    {% block content %}{% endblock %}
+    
+    <div class="nav-content">
+      <!-- Main Navigation -->
+      <nav id="sidebar" class="sidebar">
+        {% if current_user.is_authenticated %}
+        <div class="sidebar-content">
+          <!-- Collapse/Expand Button -->
+          <div class="text-center mb-3">
+            <button type="button" id="sidebarCollapse" class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-chevron-left collapse-icon"></i>
+              <i class="bi bi-chevron-right expand-icon" style="display: none;"></i>
+            </button>
+          </div>
+          
+          <!-- Home Section with Locations -->
+          <div class="nav-section">
+            <a href="#homeSubmenu" data-bs-toggle="collapse" class="nav-link">
+              <i class="bi bi-house-door"></i>
+              <span>Home</span>
+              <i class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul id="homeSubmenu" class="collapse show list-unstyled ps-3">
+              
+              <!-- Server-side rendered locations -->
+              {% if nav_locations %}
+                {% for location in nav_locations %}
+                <li>
+                  <a href="/web/inventory?location_id={{ location.id }}" class="nav-link">
+                    <i class="bi bi-folder"></i>
+                    <span>{{ location.name }}</span>
+                    <span class="badge bg-secondary rounded-pill ms-auto">
+                      {{ location.item_count|default(0) }}
+                    </span>
+                  </a>
+                </li>
+                {% endfor %}
+              {% else %}
+                <li class="text-muted px-3">No locations found</li>
+              {% endif %}
+              
+
+            </ul>
+          </div>
+          
+          <!-- Shopping List -->
+          <a href="{{ url_for('web_shopping_list') }}" class="nav-link">
+            <i class="bi bi-cart"></i>
+            <span>Shopping List</span>
+            <span id="shopping-list-count" class="badge bg-primary rounded-pill ms-auto">0</span>
+          </a>
+          
+          <!-- Manage Section -->
+          <div class="nav-section">
+            <a href="#manageSubmenu" data-bs-toggle="collapse" class="nav-link">
+              <i class="bi bi-gear"></i>
+              <span>Manage</span>
+              <i class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul id="manageSubmenu" class="collapse list-unstyled ps-3">
+                <li>
+                  <a href="/family" class="nav-link">
+                    <i class="bi bi-people"></i>
+                    <span>Family</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="{{ url_for('web_locations') }}" class="nav-link">
+                    <i class="bi bi-geo-alt"></i>
+                    <span>Locations</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="{{ url_for('web_aisles') }}" class="nav-link">
+                    <i class="bi bi-columns-gap"></i>
+                    <span>Aisles</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="{{ url_for('web_stores') }}" class="nav-link">
+                    <i class="bi bi-shop"></i>
+                    <span>Stores</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="{{ url_for('web_master_items') }}" class="nav-link">
+                    <i class="bi bi-tags"></i>
+                    <span>Items</span>
+                  </a>
+                </li>
+              </ul>
+            </div>
+            
+            <!-- Bottom Navigation -->
+            <div class="mt-auto">
+              <div class="nav-section">
+                <a href="{{ url_for('user_profile') }}" class="nav-link">
+                  <i class="bi bi-person"></i>
+                  <span>{{ current_user.email }}</span>
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link">
+                  <i class="bi bi-box-arrow-right"></i>
+                  <span>Logout</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="sidebar-content">
+          <a href="{{ url_for('auth_page') }}" class="nav-link">
+            <i class="bi bi-box-arrow-in-right"></i>
+            <span>Login</span>
+          </a>
+        </div>
+        {% endif %}
+      </nav>
+    </div>
   </div>
+
+  <!-- Page Content -->
+  <div id="content">
+    <!-- Top Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <div class="container-fluid">
+        <div class="ms-auto">
+          <span class="navbar-text">
+            {% if current_user.is_authenticated %}
+              {{ current_user.email }}
+            {% else %}
+              Guest
+            {% endif %}
+          </span>
+        </div>
+      </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <div class="container-fluid py-4">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Initialize the sidebar and load dynamic content -->
+  <script>
+  // Wrap in IIFE to avoid polluting global scope
+  (function() {
+    'use strict';
+    
+    // Check authentication state from body data attribute
+    var isAuthenticated = document.body.getAttribute('data-authenticated') === 'true';
+    
+    // Define functions first
+    function initializeSidebar() {
+      var navDrawer = document.getElementById('navDrawer');
+      var sidebarCollapse = document.getElementById('sidebarCollapse');
+      var content = document.getElementById('content');
+      var fullTitle = document.querySelector('.full-title');
+      var shortTitle = document.querySelector('.short-title');
+      var collapseIcon = document.querySelector('.collapse-icon');
+      var expandIcon = document.querySelector('.expand-icon');
+      
+      // Check if sidebar was previously collapsed
+      var isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+      
+      // Apply the collapsed state if needed
+      if (isCollapsed) {
+        navDrawer.classList.add('collapsed');
+        content.classList.add('expanded');
+        fullTitle.style.display = 'none';
+        shortTitle.style.display = 'block';
+        collapseIcon.style.display = 'none';
+        expandIcon.style.display = 'inline-block';
+      }
+      
+      // Handle collapse/expand
+      if (sidebarCollapse) {
+        sidebarCollapse.addEventListener('click', function() {
+          // Toggle collapsed state
+          var nowCollapsed = navDrawer.classList.contains('collapsed');
+          navDrawer.classList.toggle('collapsed');
+          content.classList.toggle('expanded');
+          
+          // Toggle icons and titles based on the NEW state (after toggle)
+          nowCollapsed = !nowCollapsed; // State has been toggled, so invert
+          
+          // Toggle titles
+          fullTitle.style.display = nowCollapsed ? 'none' : 'block';
+          shortTitle.style.display = nowCollapsed ? 'block' : 'none';
+          
+          // Toggle chevron direction
+          collapseIcon.style.display = nowCollapsed ? 'none' : 'inline-block';
+          expandIcon.style.display = nowCollapsed ? 'inline-block' : 'none';
+          
+          // Save state to localStorage
+          localStorage.setItem('sidebarCollapsed', nowCollapsed);
+        });
+      }
+    }
+    
+    function setActiveNavLinks() {
+      var currentPath = window.location.pathname;
+      document.querySelectorAll('.nav-link').forEach(function(link) {
+        if (link.getAttribute('href') === currentPath) {
+          link.classList.add('active');
+          // Expand parent dropdown if exists
+          var parentCollapse = link.closest('.collapse');
+          if (parentCollapse) {
+            parentCollapse.classList.add('show');
+          }
+        }
+      });
+    }
+    
+    // Locations are now rendered server-side via the context processor
+    // No need for a JavaScript function to load them
+    
+    function loadShoppingListCount() {
+      var countElement = document.getElementById('shopping-list-count');
+      if (!countElement || !isAuthenticated) return;
+      
+      fetch('/api/shopping-list/count', {
+        credentials: 'same-origin' // Include cookies in the request
+      })
+        .then(function(response) {
+          if (!response.ok) throw new Error('Network response was not ok');
+          return response.json();
+        })
+        .then(function(data) {
+          countElement.textContent = data.count;
+          countElement.style.display = data.count > 0 ? 'inline-block' : 'none';
+        })
+        .catch(function(error) {
+          console.error('Error loading shopping list count:', error);
+          countElement.style.display = 'none';
+        });
+    }
+    
+    // Initialize everything when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeSidebar();
+      setActiveNavLinks();
+      if (isAuthenticated) {
+        // Only load shopping list count dynamically
+        // Locations are now rendered server-side
+        loadShoppingListCount();
+      }
+    });
+  })();
+  </script>
 </body>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </html>
