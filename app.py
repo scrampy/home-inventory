@@ -1171,6 +1171,97 @@ def web_remove_store_from_item(item_id, store_id):
     confirmation = f"Removed '{item_name}' from store '{store_name}'."
     return redirect(url_for('web_edit_master_item', item_id=item.id, confirmation=confirmation))
 
+@app.route('/web/inventory/create-and-add', methods=['POST'])
+def web_create_and_add_inventory():
+    """Create a new master item and add it to inventory in one step"""
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth_page'))
+    
+    # Get form data
+    name = request.form.get('new_item_name')
+    location_id = request.form.get('location_id')
+    sort_col = request.form.get('sort_col')
+    sort_dir = request.form.get('sort_dir')
+    
+    # Validate input
+    error = None
+    confirmation = None
+    
+    if not name or not name.strip():
+        error = "Item name cannot be blank."
+    elif not location_id:
+        error = "Location is required."
+    else:
+        # Normalize the name
+        norm_name = name.strip().title()
+        
+        # Get family ID
+        fam_member = FamilyMember.query.filter_by(user_id=current_user.id).first()
+        family_id = fam_member.family_id if fam_member else None
+        
+        if not family_id:
+            error = "No family membership found."
+        else:
+            # Check if item already exists
+            existing_item = MasterItem.query.filter_by(name=norm_name, family_id=family_id).first()
+            
+            if existing_item:
+                # Item exists, just add it to inventory
+                try:
+                    # Check if item is already in this location
+                    existing_inv = Inventory.query.filter_by(
+                        master_item_id=existing_item.id,
+                        location_id=location_id,
+                        family_id=family_id
+                    ).first()
+                    
+                    if existing_inv:
+                        # Update quantity
+                        existing_inv.quantity += 1
+                        db.session.commit()
+                        confirmation = f"Updated quantity of '{norm_name}' to {existing_inv.quantity}."
+                    else:
+                        # Add to inventory with quantity 1
+                        new_inv = Inventory(
+                            master_item_id=existing_item.id,
+                            location_id=location_id,
+                            quantity=1,
+                            family_id=family_id
+                        )
+                        db.session.add(new_inv)
+                        db.session.commit()
+                        confirmation = f"Added '{norm_name}' to inventory."
+                except IntegrityError:
+                    db.session.rollback()
+                    error = f"Error adding '{norm_name}' to inventory."
+            else:
+                # Create new master item and add to inventory
+                try:
+                    # Create master item
+                    new_item = MasterItem(
+                        name=norm_name,
+                        family_id=family_id
+                    )
+                    db.session.add(new_item)
+                    db.session.flush()  # To get the new item ID
+                    
+                    # Add to inventory with quantity 1
+                    new_inv = Inventory(
+                        master_item_id=new_item.id,
+                        location_id=location_id,
+                        quantity=1,
+                        family_id=family_id
+                    )
+                    db.session.add(new_inv)
+                    db.session.commit()
+                    confirmation = f"Created and added '{norm_name}' to inventory."
+                except IntegrityError:
+                    db.session.rollback()
+                    error = f"Error creating or adding '{norm_name}'."
+    
+    # Redirect back to inventory page
+    return redirect(url_for('web_inventory', location_id=location_id, confirmation=confirmation, error=error, sort_col=sort_col, sort_dir=sort_dir))
+
 @app.route('/web/inventory', methods=['GET', 'POST'])
 def web_inventory():
     if not current_user.is_authenticated:

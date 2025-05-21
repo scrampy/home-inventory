@@ -13,23 +13,56 @@
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
   </div>
 {% endif %}
-<form method="post" class="row g-3 mb-4">
-  <div class="col-12 col-md-auto">
-    <select name="master_item_id" class="form-select" required>
-      <option value="">Select Item</option>
-      {% for item in items %}
-      <option value="{{ item.id }}">{{ item.name }}</option>
-      {% endfor %}
-    </select>
+
+<!-- Tabs for different ways to add items -->
+<ul class="nav nav-tabs mb-3" id="inventoryTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="existing-tab" data-bs-toggle="tab" data-bs-target="#existing" type="button" role="tab" aria-controls="existing" aria-selected="true">Add Existing Item</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="new-tab" data-bs-toggle="tab" data-bs-target="#new" type="button" role="tab" aria-controls="new" aria-selected="false">Create and Add 1</button>
+  </li>
+</ul>
+
+<div class="tab-content" id="inventoryTabsContent">
+  <!-- Tab for adding existing items -->
+  <div class="tab-pane fade show active" id="existing" role="tabpanel" aria-labelledby="existing-tab">
+    <form method="post" class="row g-3 mb-4">
+      <div class="col-12 col-md-auto">
+        <select name="master_item_id" class="form-select" required>
+          <option value="">Select Item</option>
+          {% for item in items %}
+          <option value="{{ item.id }}">{{ item.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-auto mt-2 mt-md-0">
+        <input type="hidden" name="location_id" value="{{ selected_location.id }}">
+        <input type="number" step="1" min="1" name="quantity" class="form-control" placeholder="Quantity" value="1" required>
+      </div>
+      <div class="col-12 col-md-auto mt-2 mt-md-0">
+        <button class="btn btn-success w-100">Add/Update</button>
+      </div>
+    </form>
   </div>
-  <div class="col-12 col-md-auto mt-2 mt-md-0">
-    <input type="hidden" name="location_id" value="{{ selected_location.id }}">
-    <input type="number" step="1" min="1" name="quantity" class="form-control" placeholder="Quantity" value="1" required>
+  
+  <!-- Tab for creating and adding new items -->
+  <div class="tab-pane fade" id="new" role="tabpanel" aria-labelledby="new-tab">
+    <form method="post" action="/web/inventory/create-and-add" class="row g-3 mb-4">
+      <div class="col-12 col-md-auto">
+        <input type="text" name="new_item_name" class="form-control" placeholder="New item name" required>
+      </div>
+      <div class="col-12 col-md-auto mt-2 mt-md-0">
+        <input type="hidden" name="location_id" value="{{ selected_location.id }}">
+        <input type="hidden" name="sort_col" value="{{ request.args.get('sort_col', '') }}">
+        <input type="hidden" name="sort_dir" value="{{ request.args.get('sort_dir', '') }}">
+      </div>
+      <div class="col-12 col-md-auto mt-2 mt-md-0">
+        <button class="btn btn-primary w-100">Create and Add 1</button>
+      </div>
+    </form>
   </div>
-  <div class="col-12 col-md-auto mt-2 mt-md-0">
-    <button class="btn btn-success w-100">Add/Update</button>
-  </div>
-</form>
+</div>
 
 {% if confirmation %}
 <div class="alert alert-success" role="alert">{{ confirmation }}</div>
