@@ -508,6 +508,9 @@ def get_locations():
 @login_required
 def create_location():
     family_id = get_current_family_id()
+    if not family_id:
+        return jsonify({'error': 'No family found. Please contact support as this should not happen.'}), 400
+        
     json_data = request.get_json()
     try:
         loc = Location(family_id=family_id, **json_data)
@@ -839,9 +842,13 @@ def signup():
         except Exception as e:
             print(f"[DEBUG] /signup exception: {e}")
             return jsonify({'error': 'Invalid or expired invitation.'}), 400
-    elif family_name:
-        # Create new family, make user admin
-        family = Family(name=family_name, created_by_user_id=user.id)
+    else:
+        # Create a default family for the user if no family name or invite token is provided
+        default_family_name = f"{email.split('@')[0]}'s Family"
+        if family_name:  # If family_name was provided but empty, use default name
+            default_family_name = family_name or default_family_name
+            
+        family = Family(name=default_family_name, created_by_user_id=user.id)
         db.session.add(family)
         db.session.flush()
         fam_member = FamilyMember(user_id=user.id, family_id=family.id, role='admin')
