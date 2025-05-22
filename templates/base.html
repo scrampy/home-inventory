@@ -14,15 +14,163 @@
       position: fixed;
       left: 0;
       top: 0;
-      z-index: 1000;
+      z-index: 1050;
       background-color: #f8f9fa;
       border-right: 1px solid #dee2e6;
-      transition: all 0.3s;
+      transition: transform 0.3s ease-in-out;
+      /* Start hidden by default, will be shown by media queries and JS */
+      transform: translateX(-100%);
+    }
+    
+    /* Active state for mobile menu */
+    .nav-drawer.active {
+      transform: translateX(0);
+    }
+    
+    /* Mobile menu overlay */
+    .mobile-menu-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1040;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+      will-change: opacity;
+      pointer-events: none;
+    }
+    
+    .mobile-menu-overlay.show {
+      display: block;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    /* Show sidebar when active */
+    .nav-drawer.active {
+      left: 0;
+    }
+    
+    /* Mobile styles (default) */
+    .mobile-menu-btn {
+      display: inline-flex !important; /* Show by default on mobile */
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      margin-right: 0.75rem;
+      padding: 0.25rem;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 0.25rem;
+      background-color: white;
+      z-index: 1060; /* Above the sidebar */
+      transition: all 0.2s;
+    }
+    
+    .mobile-menu-btn:hover {
+      background-color: #f8f9fa;
+      border-color: rgba(0, 0, 0, 0.2);
+    }
+    
+    .desktop-collapse {
+      display: none !important; /* Hide on mobile by default */
+    }
+    
+    /* Ensure the navbar has proper z-index */
+    .navbar {
+      position: relative;
+      z-index: 1050;
+    }
+    
+    /* Desktop styles */
+    @media (min-width: 993px) {
+      .nav-drawer {
+        transform: translateX(0); /* Show by default on desktop */
+      }
+      
+      .nav-drawer.collapsed {
+        transform: translateX(-210px);
+      }
+      
+      .mobile-menu-btn {
+        display: none !important; /* Hide on desktop */
+      }
+      
+      .desktop-collapse {
+        display: inline-flex !important; /* Show on desktop */
+      }
+      
+      #content {
+        margin-left: 280px; /* Account for sidebar width */
+        transition: margin-left 0.3s ease-in-out;
+      }
+      
+      .nav-drawer.collapsed + #content {
+        margin-left: 70px; /* Collapsed sidebar width */
+      }
+    }
+    
+    /* Mobile-specific styles */
+    @media (max-width: 992px) {
+      .nav-drawer {
+        transform: translateX(-100%);
+      }
+      
+      .nav-drawer.active {
+        transform: translateX(0);
+      }
+      
+      #content {
+        margin-left: 0;
+        width: 100%;
+        transition: transform 0.3s ease-in-out;
+      }
+      
+      .nav-drawer.active + #content {
+        transform: translateX(280px);
+      }
+    }
+    
+    /* Desktop styles */
+    @media (min-width: 993px) {
+      .nav-drawer {
+        transform: translateX(0);
+      }
+      
+      .nav-drawer.collapsed {
+        transform: translateX(-210px);
+      }
+      
+      .mobile-menu-btn {
+        display: none !important;
+      }
+      
+      .mobile-menu-overlay {
+        display: none !important;
+      }
     }
     
     .nav-header {
       padding: 1rem;
       border-bottom: 1px solid #dee2e6;
+      position: relative;
+      z-index: 1;
+      background-color: #f8f9fa;
+    }
+    
+    .nav-header h3 {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 500;
+    }
+    
+    .nav-header .d-flex {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -47,12 +195,29 @@
     }
     
     .sidebar-content {
-      padding: 1rem 0;
+      padding: 0.5rem 0;
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
       display: flex;
       flex-direction: column;
       height: 100%;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: #dee2e6 #f8f9fa;
+    }
+    
+    .sidebar-content::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .sidebar-content::-webkit-scrollbar-track {
+      background: #f8f9fa;
+    }
+    
+    .sidebar-content::-webkit-scrollbar-thumb {
+      background-color: #dee2e6;
+      border-radius: 3px;
     }
     
     .nav-section {
@@ -153,7 +318,10 @@
     }
   </style>
 </head>
-<body data-authenticated="{{ current_user.is_authenticated }}">
+<body data-authenticated="{% if current_user.is_authenticated %}true{% else %}false{% endif %}">
+  
+  <!-- Mobile Menu Overlay -->
+  <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
   
   <!-- Navigation Component -->
   <div class="nav-drawer" id="navDrawer">
@@ -171,9 +339,9 @@
         <div class="sidebar-content">
           <!-- Collapse/Expand Button -->
           <div class="text-center mb-3">
-            <button type="button" id="sidebarCollapse" class="btn btn-sm btn-outline-secondary">
-              <i class="bi bi-chevron-left collapse-icon"></i>
-              <i class="bi bi-chevron-right expand-icon" style="display: none;"></i>
+            <button type="button" id="sidebarCollapse" class="btn btn-sm btn-outline-secondary desktop-collapse" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0;">
+              <i class="bi bi-chevron-left collapse-icon" style="font-size: 0.8rem;"></i>
+              <i class="bi bi-chevron-right expand-icon" style="display: none; font-size: 0.8rem;"></i>
             </button>
           </div>
           
@@ -285,9 +453,12 @@
   <!-- Page Content -->
   <div id="content">
     <!-- Top Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-      <div class="container-fluid">
-        <div class="ms-auto">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light px-3">
+      <div class="container-fluid p-0">
+        <button class="navbar-toggler mobile-menu-btn" type="button" id="mobileMenuToggle" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="ms-auto d-flex align-items-center">
           <span class="navbar-text">
             {% if current_user.is_authenticated %}
               {{ current_user.email }}
@@ -305,61 +476,137 @@
     </div>
   </div>
   
+  <!-- Move JavaScript to the end of body -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   
-  <!-- Initialize the sidebar and load dynamic content -->
+  <!-- Main Application Script -->
   <script>
-  // Wrap in IIFE to avoid polluting global scope
-  (function() {
-    'use strict';
+  // Define global functions and variables
+  'use strict';
+  
+  // Global variables
+  let isAuthenticated = document.body.getAttribute('data-authenticated') === 'true';
+  console.log('Initial authentication state:', isAuthenticated);
+  
+  // Function to load shopping list count
+  function loadShoppingListCount() {
+    console.log('loadShoppingListCount called');
+    const countElement = document.getElementById('shopping-list-count');
+    if (!countElement) {
+      console.error('Shopping list count element not found');
+      return;
+    }
+    
+    // Always show the count element, we'll hide it if needed after fetching
+    countElement.style.display = 'inline-block';
+    
+    // Double check authentication
+    if (!isAuthenticated) {
+      console.log('User not authenticated, hiding count');
+      countElement.style.display = 'none';
+      return;
+    }
+    
+    console.log('Fetching shopping list count...');
+    fetch('/api/shopping-list/count', {
+      credentials: 'same-origin',
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    })
+    .then(response => {
+      console.log('Count response status:', response.status);
+      if (!response.ok) throw new Error('Network response was not ok');
+      return response.json();
+    })
+    .then(data => {
+      console.log('Shopping list count:', data.count);
+      if (countElement) {
+        countElement.textContent = data.count;
+        countElement.style.display = data.count > 0 ? 'inline-block' : 'none';
+      }
+    })
+    .catch(error => {
+      console.error('Error loading shopping list count:', error);
+      if (countElement) countElement.style.display = 'none';
+    });
+  }
+  
+  // Make function globally available
+  window.loadShoppingListCount = loadShoppingListCount;
+  
+  // Wait for DOM to be fully loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM fully loaded, initializing application...');
     
     // Check authentication state from body data attribute
-    var isAuthenticated = document.body.getAttribute('data-authenticated') === 'true';
+    isAuthenticated = document.body.getAttribute('data-authenticated') === 'true';
+    console.log('User authenticated:', isAuthenticated);
     
-    // Define functions first
+    // Define functions
     function initializeSidebar() {
-      var navDrawer = document.getElementById('navDrawer');
-      var sidebarCollapse = document.getElementById('sidebarCollapse');
-      var content = document.getElementById('content');
-      var fullTitle = document.querySelector('.full-title');
-      var shortTitle = document.querySelector('.short-title');
-      var collapseIcon = document.querySelector('.collapse-icon');
-      var expandIcon = document.querySelector('.expand-icon');
+      console.group('initializeSidebar');
+      const navDrawer = document.getElementById('navDrawer');
+      const sidebarCollapse = document.getElementById('sidebarCollapse');
+      const content = document.getElementById('content');
+      const fullTitle = document.querySelector('.full-title');
+      const shortTitle = document.querySelector('.short-title');
+      const collapseIcon = document.querySelector('.collapse-icon');
+      const expandIcon = document.querySelector('.expand-icon');
+      const isDesktop = window.innerWidth >= 993;
       
-      // Check if sidebar was previously collapsed
-      var isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+      console.log('Initial sidebar state - isDesktop:', isDesktop);
       
-      // Apply the collapsed state if needed
-      if (isCollapsed) {
-        navDrawer.classList.add('collapsed');
-        content.classList.add('expanded');
-        fullTitle.style.display = 'none';
-        shortTitle.style.display = 'block';
-        collapseIcon.style.display = 'none';
-        expandIcon.style.display = 'inline-block';
+      // Set initial state based on viewport
+      if (isDesktop) {
+        // On desktop, show the sidebar by default
+        navDrawer.style.transform = 'translateX(0)';
+        
+        // Check if sidebar was previously collapsed
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        
+        if (isCollapsed) {
+          console.log('Initializing with collapsed sidebar');
+          navDrawer.classList.add('collapsed');
+          if (fullTitle) fullTitle.style.display = 'none';
+          if (shortTitle) shortTitle.style.display = 'block';
+          if (collapseIcon) collapseIcon.style.display = 'none';
+          if (expandIcon) expandIcon.style.display = 'inline-block';
+        } else {
+          console.log('Initializing with expanded sidebar');
+          navDrawer.classList.remove('collapsed');
+          if (fullTitle) fullTitle.style.display = 'block';
+          if (shortTitle) shortTitle.style.display = 'none';
+          if (collapseIcon) collapseIcon.style.display = 'inline-block';
+          if (expandIcon) expandIcon.style.display = 'none';
+        }
+      } else {
+        // On mobile, ensure the menu is hidden by default
+        console.log('Mobile view - hiding sidebar by default');
+        navDrawer.style.transform = 'translateX(-100%)';
+        navDrawer.classList.remove('active');
       }
       
-      // Handle collapse/expand
+      // Handle desktop collapse/expand
       if (sidebarCollapse) {
-        sidebarCollapse.addEventListener('click', function() {
-          // Toggle collapsed state
-          var nowCollapsed = navDrawer.classList.contains('collapsed');
-          navDrawer.classList.toggle('collapsed');
-          content.classList.toggle('expanded');
-          
-          // Toggle icons and titles based on the NEW state (after toggle)
-          nowCollapsed = !nowCollapsed; // State has been toggled, so invert
-          
-          // Toggle titles
-          fullTitle.style.display = nowCollapsed ? 'none' : 'block';
-          shortTitle.style.display = nowCollapsed ? 'block' : 'none';
-          
-          // Toggle chevron direction
-          collapseIcon.style.display = nowCollapsed ? 'none' : 'inline-block';
-          expandIcon.style.display = nowCollapsed ? 'inline-block' : 'none';
-          
-          // Save state to localStorage
-          localStorage.setItem('sidebarCollapsed', nowCollapsed);
+        sidebarCollapse.addEventListener('click', function(e) {
+          if (window.innerWidth >= 993) { // Only for desktop
+            e.preventDefault();
+            const isNowCollapsed = !navDrawer.classList.contains('collapsed');
+            
+            // Toggle collapsed class
+            navDrawer.classList.toggle('collapsed');
+            
+            // Update icons and titles
+            if (fullTitle) fullTitle.style.display = isNowCollapsed ? 'none' : 'block';
+            if (shortTitle) shortTitle.style.display = isNowCollapsed ? 'block' : 'none';
+            if (collapseIcon) collapseIcon.style.display = isNowCollapsed ? 'none' : 'inline-block';
+            if (expandIcon) expandIcon.style.display = isNowCollapsed ? 'inline-block' : 'none';
+            
+            // Save state to localStorage
+            localStorage.setItem('sidebarCollapsed', isNowCollapsed);
+          }
         });
       }
     }
@@ -381,38 +628,240 @@
     // Locations are now rendered server-side via the context processor
     // No need for a JavaScript function to load them
     
-    function loadShoppingListCount() {
-      var countElement = document.getElementById('shopping-list-count');
-      if (!countElement || !isAuthenticated) return;
+    // Toggle mobile menu
+    function toggleMobileMenu(show) {
+      console.group('toggleMobileMenu');
+      const navDrawer = document.getElementById('navDrawer');
+      const overlay = document.getElementById('mobileMenuOverlay');
+      const body = document.body;
+      const isDesktop = window.innerWidth >= 993;
       
-      fetch('/api/shopping-list/count', {
-        credentials: 'same-origin' // Include cookies in the request
-      })
-        .then(function(response) {
-          if (!response.ok) throw new Error('Network response was not ok');
-          return response.json();
-        })
-        .then(function(data) {
-          countElement.textContent = data.count;
-          countElement.style.display = data.count > 0 ? 'inline-block' : 'none';
-        })
-        .catch(function(error) {
-          console.error('Error loading shopping list count:', error);
-          countElement.style.display = 'none';
-        });
+      // Debug logging
+      console.log('Initial state - navDrawer:', {
+        classList: Array.from(navDrawer?.classList || []),
+        transform: navDrawer ? window.getComputedStyle(navDrawer).transform : 'not found',
+        display: navDrawer ? window.getComputedStyle(navDrawer).display : 'not found'
+      });
+      
+      console.log('Viewport width:', window.innerWidth, 'isDesktop:', isDesktop);
+      
+      // Toggle if show parameter is not provided
+      if (show === undefined) {
+        show = !navDrawer?.classList.contains('active');
+      }
+      
+      if (isDesktop) {
+        // On desktop, just ensure overlay is hidden
+        if (overlay) overlay.style.display = 'none';
+        console.log('Desktop view - toggleMobileMenu has no effect');
+        console.groupEnd();
+        return;
+      }
+      
+      // Mobile behavior
+      if (show) {
+        console.log('Showing mobile menu');
+        navDrawer.classList.add('active');
+        navDrawer.style.transform = 'translateX(0)';
+        
+        if (overlay) {
+          overlay.style.display = 'block';
+          setTimeout(() => overlay.classList.add('show'), 10);
+        }
+        
+        body.style.overflow = 'hidden';
+      } else {
+        console.log('Hiding mobile menu');
+        navDrawer.classList.remove('active');
+        navDrawer.style.transform = 'translateX(-100%)';
+        
+        if (overlay) {
+          overlay.classList.remove('show');
+          // Remove overlay after transition
+          setTimeout(() => {
+            if (overlay) overlay.style.display = 'none';
+          }, 300);
+        }
+        
+        body.style.overflow = '';
+      }
+      
+      console.log('Final state - navDrawer:', {
+        classList: Array.from(navDrawer?.classList || []),
+        transform: navDrawer ? window.getComputedStyle(navDrawer).transform : 'not found',
+        display: navDrawer ? window.getComputedStyle(navDrawer).display : 'not found'
+      });
+      console.groupEnd();
     }
     
-    // Initialize everything when DOM is loaded
-    document.addEventListener('DOMContentLoaded', function() {
+    // Handle viewport changes between mobile and desktop
+    function handleViewportChange() {
+      const navDrawer = document.getElementById('navDrawer');
+      const overlay = document.getElementById('mobileMenuOverlay');
+      const isDesktop = window.innerWidth >= 993;
+      
+      console.log('Viewport changed - isDesktop:', isDesktop);
+      
+      if (isDesktop) {
+        // Switching to desktop view
+        console.log('Switching to desktop view');
+        
+        // Ensure mobile menu is closed
+        if (overlay) {
+          overlay.style.display = 'none';
+          overlay.classList.remove('show');
+        }
+        
+        // Reset any mobile-specific styles
+        document.body.style.overflow = '';
+        
+        // Show the sidebar
+        navDrawer.style.transform = 'translateX(0)';
+        navDrawer.classList.remove('active');
+        
+        // Restore collapsed state from localStorage
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed) {
+          navDrawer.classList.add('collapsed');
+        } else {
+          navDrawer.classList.remove('collapsed');
+        }
+      } else {
+        // Switching to mobile view
+        console.log('Switching to mobile view');
+        
+        // Hide the sidebar by default on mobile
+        navDrawer.style.transform = 'translateX(-100%)';
+        navDrawer.classList.remove('active');
+        navDrawer.classList.remove('collapsed');
+      }
+    }
+    
+    // Initialize the application when DOM is ready
+    function initApp() {
+      console.group('initApp');
+      // Re-check authentication state from body data attribute
+      isAuthenticated = document.body.getAttribute('data-authenticated') === 'true';
+      console.log('User authenticated:', isAuthenticated);
+      
+      // Log initial state of important elements
+      const logElementState = (id, label = id) => {
+        const el = document.getElementById(id);
+        if (!el) {
+          console.log(`${label}: Element not found`);
+          return;
+        }
+        console.log(`${label}:`, {
+          tagName: el.tagName,
+          classList: Array.from(el.classList),
+          display: window.getComputedStyle(el).display,
+          visibility: window.getComputedStyle(el).visibility,
+          position: window.getComputedStyle(el).position,
+          transform: window.getComputedStyle(el).transform,
+          width: window.getComputedStyle(el).width
+        });
+      };
+      
+      logElementState('navDrawer', 'Nav Drawer');
+      logElementState('mobileMenuToggle', 'Hamburger Button');
+      logElementState('mobileMenuOverlay', 'Mobile Overlay');
+      logElementState('content', 'Content Area');
+      
+      // Initialize sidebar and navigation
       initializeSidebar();
       setActiveNavLinks();
+      
+      // Update UI based on authentication state
+      updateUIBasedOnAuth();
+      
+      // Only load shopping list if user is authenticated
       if (isAuthenticated) {
-        // Only load shopping list count dynamically
-        // Locations are now rendered server-side
         loadShoppingListCount();
+      } else {
+        console.log('User not authenticated, skipping shopping list count');
       }
-    });
-  })();
+      
+      // Set up mobile menu toggle
+      const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+      const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+      
+      if (mobileMenuToggle) {
+        console.log('Setting up mobile menu toggle');
+        mobileMenuToggle.addEventListener('click', function(e) {
+          console.log('Mobile menu toggle clicked');
+          e.preventDefault();
+          toggleMobileMenu();
+        });
+      } else {
+        console.error('Mobile menu toggle button not found!');
+      }
+      
+      if (mobileMenuOverlay) {
+        mobileMenuOverlay.addEventListener('click', function() {
+          toggleMobileMenu(false);
+        });
+      }
+      
+      // Handle window resize with debounce
+      let resizeTimeout;
+      function handleResize() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          handleViewportChange();
+        }, 100);
+      }
+      
+      // Add resize event listener
+      window.addEventListener('resize', handleResize);
+      
+      // Initialize viewport state
+      handleViewportChange();
+      
+      // Log the current state for debugging
+      console.log('Navigation initialized. Auth state:', isAuthenticated);
+      console.log('Viewport width:', window.innerWidth);
+      console.log('Media query (max-width: 992px):', window.matchMedia('(max-width: 992px)').matches);
+      console.groupEnd();
+      
+      // Log when media query changes
+      const mediaQuery = window.matchMedia('(max-width: 992px)');
+      const handleMediaChange = (e) => {
+        console.log('Media query changed (max-width: 992px):', e.matches);
+        console.log('Current viewport width:', window.innerWidth);
+        handleViewportChange();
+        logElementState('mobileMenuToggle', 'Hamburger Button (media change)');
+      };
+      mediaQuery.addListener(handleMediaChange);
+    }
+    
+    // Function to update UI based on authentication state
+    function updateUIBasedOnAuth() {
+      const authOnlyElements = document.querySelectorAll('.auth-only');
+      const unauthOnlyElements = document.querySelectorAll('.unauth-only');
+      
+      if (isAuthenticated) {
+        // Show elements for authenticated users
+        authOnlyElements.forEach(el => el.style.display = '');
+        unauthOnlyElements.forEach(el => el.style.display = 'none');
+      } else {
+        // Show elements for unauthenticated users
+        authOnlyElements.forEach(el => el.style.display = 'none');
+        unauthOnlyElements.forEach(el => el.style.display = '');
+      }
+      
+      console.log('UI updated for', isAuthenticated ? 'authenticated' : 'unauthenticated', 'user');
+    }
+    
+    // Log that the script has loaded
+    console.log('Application script loaded successfully');
+    
+    // Make sure the app initializes even if loaded asynchronously
+    if (document.readyState !== 'loading') {
+      initApp();
+    } else {
+      document.addEventListener('DOMContentLoaded', initApp);
+    }
+  });
   </script>
 </body>
 </html>

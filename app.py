@@ -1581,12 +1581,24 @@ def test_debug_locations():
 @login_required
 def api_get_shopping_list_count():
     """Get the count of items in the shopping list."""
-    count = db.session.query(ShoppingListItem).filter(
-        ShoppingListItem.family_id == current_user.family_id,
-        ShoppingListItem.checked == False
-    ).count()
-    
-    return jsonify({'count': count})
+    try:
+        if not hasattr(current_user, 'family_id') or not current_user.family_id:
+            app.logger.info('User does not have a family assigned')
+            return jsonify({'count': 0})
+            
+        app.logger.info(f'Getting shopping list count for family_id: {current_user.family_id}')
+        count = db.session.query(ShoppingListItem).join(
+            MasterItem,
+            ShoppingListItem.item_id == MasterItem.id
+        ).filter(
+            MasterItem.family_id == current_user.family_id,
+            ShoppingListItem.checked == False
+        ).count()
+        app.logger.info(f'Found {count} items in shopping list')
+        return jsonify({'count': count})
+    except Exception as e:
+        app.logger.error(f'Error getting shopping list count: {str(e)}')
+        return jsonify({'error': str(e)}), 500
 
 # The locations endpoint is already implemented elsewhere in the application
 

@@ -26,10 +26,90 @@
       <a href="{{ url_for('web_edit_master_item', item_id=item.id) }}">{{ item.name }}</a>
       <span class="text-muted small ms-md-2">Stores: {% if item.stores %}{{ item.stores | map(attribute='name') | join(', ') }}{% else %}—{% endif %}</span>
     </div>
-    <form method="post" action="{{ url_for('web_add_to_shopping_list', item_id=item.id) }}" class="d-inline mt-2 mt-md-0 w-100 w-md-auto">
-      <button class="btn btn-sm btn-outline-primary w-100 w-md-auto" type="submit" {% if item.shopping_list_items %}disabled{% endif %}>Add to Shopping List</button>
+    <form method="post" action="{{ url_for('web_add_to_shopping_list', item_id=item.id) }}" class="d-inline mt-2 mt-md-0 w-100 w-md-auto add-to-cart-form">
+      <button class="btn btn-sm btn-outline-primary w-100 w-md-auto" type="submit" {% if item.shopping_list_items %}disabled{% endif %}>
+        Add to Shopping List
+      </button>
     </form>
   </li>
   {% endfor %}
 </ul>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Handle add to cart form submissions
+  document.querySelectorAll('.add-to-cart-form').forEach(form => {
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const button = this.querySelector('button[type="submit"]');
+      const originalText = button.innerHTML;
+      
+      try {
+        console.log('Adding item to shopping list...');
+        // Disable button to prevent double submission
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Adding...';
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Adding...';
+        
+        // Submit the form
+        const response = await fetch(this.action, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          credentials: 'same-origin',
+          body: new URLSearchParams(new FormData(this))
+        });
+
+        const responseData = await response.json();
+        console.log('Add to cart response:', responseData);
+
+        if (response.ok) {
+          // Update the shopping list count
+          if (typeof window.loadShoppingListCount === 'function') {
+            console.log('Calling loadShoppingListCount...');
+            window.loadShoppingListCount();
+          } else {
+            console.error('loadShoppingListCount function not found');
+          }
+          
+          // Disable the button since item is now in cart
+          button.disabled = true;
+          button.innerHTML = '<i class="bi bi-check-circle-fill"></i> In Cart';
+          button.classList.remove('btn-outline-primary');
+          button.classList.add('btn-success');
+          
+          // Show success message
+          const alert = document.createElement('div');
+          alert.className = 'alert alert-success alert-dismissible fade show mt-2';
+          alert.innerHTML = `
+            <i class="bi bi-check-circle-fill"></i> Item added to shopping list!
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          `;
+          
+          // Insert alert before the form
+          this.parentNode.insertBefore(alert, this);
+          
+          // Auto-dismiss after 3 seconds
+          setTimeout(() => {
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+            bsAlert.close();
+          }, 3000);
+        } else {
+          throw new Error(responseData.message || 'Failed to add item to shopping list');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to add item to shopping list. Please try again.');
+        button.disabled = false;
+        button.innerHTML = originalText;
+      }
+    });
+  });
+});
+</script>
 {% endblock %}
