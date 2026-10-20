@@ -1,52 +1,11 @@
 """Browser test of the main phase-1 flow. Run with: pytest -m e2e --browser-channel msedge"""
 
-import threading
-
 import pytest
 from playwright.sync_api import expect
-from werkzeug.serving import make_server
 
-from homeinv import create_app
-from homeinv.extensions import db
+from e2e_helpers import PHONE, assert_fits_phone, fill_signup
 
 pytestmark = pytest.mark.e2e
-
-PASSWORD = "correct-horse-1"
-PHONE = {"width": 375, "height": 812}
-
-
-@pytest.fixture
-def live_app(tmp_path):
-    app = create_app({
-        "APP_ENV": "testing",
-        "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'e2e.db'}",
-    })
-    with app.app_context():
-        db.create_all()
-    server = make_server("127.0.0.1", 0, app, threaded=True)
-    app.config["APP_BASE_URL"] = f"http://127.0.0.1:{server.server_port}"
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    yield app
-    server.shutdown()
-    with app.app_context():
-        db.engine.dispose()
-
-
-def fill_signup(page, name, email=None, family=None):
-    page.get_by_label("Your name").fill(name)
-    if email:
-        page.get_by_label("Email").fill(email)
-    page.get_by_label("Password", exact=True).fill(PASSWORD)
-    page.get_by_label("Confirm password").fill(PASSWORD)
-    if family:
-        page.get_by_label("Family name").fill(family)
-    page.get_by_role("button", name="Create account").click()
-
-
-def assert_fits_phone(page):
-    overflow = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
-    assert overflow <= 0, f"{page.url} scrolls sideways by {overflow}px"
 
 
 def test_invite_join_and_promote(live_app, browser):

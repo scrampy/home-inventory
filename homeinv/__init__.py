@@ -52,12 +52,14 @@ def create_app(overrides=None):
         return User.from_session_id(session_id)
 
     from .auth import bp as auth_bp
+    from .catalog import bp as catalog_bp
     from .family import bp as family_bp
     from .main import bp as main_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(family_bp)
+    app.register_blueprint(catalog_bp)
 
     from .security import current_membership
 

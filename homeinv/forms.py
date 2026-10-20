@@ -1,8 +1,9 @@
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, EmailField, HiddenField, PasswordField, SelectField, StringField
-from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional
+from wtforms import (BooleanField, EmailField, FloatField, HiddenField, PasswordField, SelectField,
+                     SelectMultipleField, StringField, TextAreaField)
+from wtforms.validators import DataRequired, Email, EqualTo, Length, NumberRange, Optional
 
-from .models import ROLES
+from .models import NAME_MAX, ROLES
 
 MIN_PASSWORD = 8
 
@@ -60,3 +61,22 @@ class RoleForm(FlaskForm):
 
 class ActionForm(FlaskForm):
     """A button-only form: carries the CSRF token for POST actions."""
+
+
+class NameForm(FlaskForm):
+    """Add or rename a location, store, aisle or item."""
+    name = StringField("Name", validators=[DataRequired(message="Enter a name."), Length(max=NAME_MAX)])
+
+
+class ItemForm(FlaskForm):
+    name = StringField("Name", validators=[DataRequired(message="Enter a name."), Length(max=NAME_MAX)])
+    # 0 means "no aisle". Choices are the current family's aisles only, so an
+    # aisle ID from another family fails validation.
+    aisle_id = SelectField("Aisle", coerce=int)
+    store_ids = SelectMultipleField("Where to buy it", coerce=int)
+    default_unit = StringField("Unit", validators=[Optional(), Length(max=32)])
+    low_stock_threshold = FloatField(
+        "Running low at",
+        validators=[Optional(), NumberRange(min=0, message="Use 0 or more.")],
+    )
+    notes = TextAreaField("Notes", validators=[Optional(), Length(max=1000)])

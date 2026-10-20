@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% from '_forms.html' import field, post_button %}
+{% block title %}{{ item.name }}{% endblock %}
+{% block content %}
+<nav class="small mb-2"><a href="{{ url_for('catalog.items') }}">&larr; Items</a></nav>
+<h1 class="h3 mb-3">{{ item.name }}</h1>
+
+<form method="post" novalidate>
+  {{ form.csrf_token }}
+  {{ field(form.name, autocomplete='off') }}
+
+  <div class="mb-3">
+    {{ form.aisle_id.label(class_='form-label') }}
+    {{ form.aisle_id(class_='form-select' ~ (' is-invalid' if form.aisle_id.errors else '')) }}
+    {% for error in form.aisle_id.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+    {% if not has_aisles %}
+      <div class="form-text"><a href="{{ url_for('catalog.named_list', kind='aisles') }}">Set up aisles</a> to group the shopping list.</div>
+    {% endif %}
+  </div>
+
+  <fieldset class="mb-3">
+    <legend class="form-label fs-6">{{ form.store_ids.label.text }}</legend>
+    {% if has_stores %}
+    <div class="store-choices">
+      {% for value, label, selected, _ in form.store_ids.iter_choices() %}
+        <input type="checkbox" class="btn-check" name="{{ form.store_ids.name }}" id="store-{{ value }}"
+               value="{{ value }}" autocomplete="off" {% if selected %}checked{% endif %}>
+        <label class="btn btn-outline-primary btn-sm" for="store-{{ value }}">{{ label }}</label>
+      {% endfor %}
+    </div>
+    {% else %}
+      <div class="form-text"><a href="{{ url_for('catalog.named_list', kind='stores') }}">Add your stores</a> to choose where you buy this.</div>
+    {% endif %}
+    {% for error in form.store_ids.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+  </fieldset>
+
+  <div class="row g-3">
+    <div class="col-6">{{ field(form.default_unit, placeholder='e.g. carton', help='Optional') }}</div>
+    <div class="col-6">{{ field(form.low_stock_threshold, inputmode='decimal', placeholder='e.g. 1',
+                               help='Optional. Flags it to restock.') }}</div>
+  </div>
+  {{ field(form.notes, rows=3, placeholder='Brand, size, anything to remember') }}
+
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Save</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('catalog.items') }}">Cancel</a>
+  </div>
+</form>
+
+<div class="border-top mt-4 pt-3">
+  {{ post_button(url_for('catalog.item_delete', item_id=item.id), 'Delete item', 'btn btn-outline-danger btn-sm',
+                 confirm='Delete ' ~ item.name ~ '?') }}
+</div>
+{% endblock %}

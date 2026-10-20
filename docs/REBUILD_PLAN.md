@@ -15,18 +15,25 @@ Decided 2026-10-20: rebuild rather than continue the Gemini-built code (tag `leg
 | # | Phase | Status |
 |---|---|---|
 | 1 | Skeleton, accounts (sign up, log in, password reset), families (invite by email, accept, roles, remove, leave, switch) | **Done** (branch `rebuild`) |
-| 2 | Catalog: locations, stores, aisles, items, and an item edit page where you attach stores | To do |
+| 2 | Catalog: locations, stores, aisles, items, and an item edit page where you attach stores | **Done** (branch `rebuild`) |
 | 3 | Inventory: view per location, +/− buttons, quick "create and add", totals across locations | To do |
 | 4 | Shopping list: add items, check off (struck through, still visible), filter by store, sort by aisle, clear purchased, low-stock view | To do |
 | 5 | Deploy: Dockerfile, Coolify app pointed at the new code, persistent volume for SQLite, nightly backups | To do |
 
-### Phase 2 design notes
+### Phase 2: what was built
 
-- Add a `FamilyOwned` mixin (`family_id` FK, indexed, NOT NULL) and a `get_for_family_or_404(Model, id)` helper in `security.py`. Use them for every catalog model.
-- Unique constraints: `(family_id, name_key)`, where `name_key` is the trimmed, lowercased name. Show names as entered.
-- Aisles stay per family for now, matching the old app. Aisles per store can come later.
-- Items get `low_stock_threshold` (nullable) for phase 4's low-stock view.
-- The shopping list gets `family_id`, with a unique `(family_id, item_id)` constraint.
+- `FamilyOwned` mixin in `models.py`: required, indexed `family_id`, plus `name` and `name_key` (trimmed, lowercased) with a unique `(family_id, name_key)` constraint. Names are shown as typed, with extra spaces collapsed.
+- Every family-owned lookup goes through `security.family_select` / `family_rows` / `get_for_family_or_404` / `name_in_use`. `tests/test_isolation.py` tries another family's IDs on every route that takes an ID, and fails if a new ID route isn't listed there.
+- An item's aisle and stores can only be chosen from the current family's (form choices are limited to them). Deleting an aisle leaves its items with no aisle; deleting a store unlinks it from items.
+- Items have `low_stock_threshold` ready for the low-stock view.
+
+### Notes for phase 3 and 4
+
+- Inventory rows (item × location × quantity) are family-owned too: give them `family_id`, and check that the item and location belong to the same family.
+- Show item counts on the Locations page once inventory exists, and decide what deleting a location that still holds items does (block it, or move them).
+- Inventory becomes the home page (`main.index`).
+- The shopping list gets `family_id` and a unique `(family_id, item_id)` constraint.
+- Aisles are sorted alphabetically. If the shopping list should follow walking order, add an aisle `position` with up/down controls.
 
 ## Deploying (phase 5)
 

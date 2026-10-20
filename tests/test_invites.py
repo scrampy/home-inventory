@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from conftest import invite, link_path, login, logout, signup, user
+from helpers import invite, link_path, login, logout, signup, user
 from homeinv.extensions import db
 from homeinv.models import Invitation, utcnow
 

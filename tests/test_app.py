@@ -9,7 +9,7 @@ from homeinv import create_app
 from homeinv.config import ConfigError
 from homeinv.extensions import db
 
-from conftest import PASSWORD
+from helpers import PASSWORD
 
 
 def test_forms_reject_posts_without_csrf_token():

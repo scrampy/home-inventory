@@ -1,4 +1,4 @@
-from conftest import invite, link_path, signup, user
+from helpers import invite, link_path, signup, user
 from homeinv.extensions import db
 from homeinv.models import Membership
 

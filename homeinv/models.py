@@ -3,8 +3,8 @@ import hashlib
 import secrets
 
 from flask_login import UserMixin
-from sqlalchemy import ForeignKey, String, UniqueConstraint, select
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Column, ForeignKey, String, Table, Text, UniqueConstraint, select
+from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .extensions import db
@@ -160,3 +160,84 @@ class Invitation(db.Model):
     @property
     def is_pending(self):
         return self.accepted_at is None and self.revoked_at is None and self.expires_at > utcnow()
+
+
+# --- Catalog: everything below belongs to one family -----------------------
+
+NAME_MAX = 80
+
+
+def clean_name(name):
+    """Trim and collapse inner whitespace; keep the user's capitalisation."""
+    return " ".join((name or "").split())
+
+
+def name_key(name):
+    """What makes two names "the same" within a family: "  milk " == "Milk"."""
+    return clean_name(name).casefold()
+
+
+class FamilyOwned:
+    """A row that belongs to exactly one family and has a name unique within it.
+
+    Look these up through security.get_for_family_or_404 / family_select so other
+    families' rows are never reachable.
+    """
+
+    @declared_attr
+    def family_id(cls) -> Mapped[int]:
+        return mapped_column(ForeignKey("family.id", ondelete="CASCADE"), index=True)
+
+    @declared_attr
+    def __table_args__(cls):
+        return (UniqueConstraint("family_id", "name_key"),)
+
+    name: Mapped[str] = mapped_column(String(NAME_MAX))
+    name_key: Mapped[str] = mapped_column(String(NAME_MAX))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+    def set_name(self, name):
+        self.name = clean_name(name)
+        self.name_key = name_key(name)
+
+
+class Location(FamilyOwned, db.Model):
+    """Where things are kept: Pantry, Garage freezer, ..."""
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+
+class Aisle(FamilyOwned, db.Model):
+    """A section of a store (Produce, Dairy, ...), used to order the shopping list."""
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    items: Mapped[list["Item"]] = relationship(back_populates="aisle", passive_deletes=True)
+
+
+item_store = Table(
+    "item_store",
+    db.metadata,
+    Column("item_id", ForeignKey("item.id", ondelete="CASCADE"), primary_key=True),
+    Column("store_id", ForeignKey("store.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class Store(FamilyOwned, db.Model):
+    id: Mapped[int] = mapped_column(primary_key=True)
+    items: Mapped[list["Item"]] = relationship(secondary=item_store, back_populates="stores")
+
+
+class Item(FamilyOwned, db.Model):
+    """Something the family buys and keeps, e.g. "Milk"."""
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    aisle_id: Mapped[int | None] = mapped_column(ForeignKey("aisle.id", ondelete="SET NULL"), index=True)
+    default_unit: Mapped[str | None] = mapped_column(String(32))
+    notes: Mapped[str | None] = mapped_column(Text)
+    # Shows up as "running low" when the total across locations falls to this or below.
+    low_stock_threshold: Mapped[float | None]
+
+    aisle: Mapped[Aisle | None] = relationship(back_populates="items")
+    stores: Mapped[list[Store]] = relationship(
+        secondary=item_store, back_populates="items", order_by="Store.name_key"
+    )

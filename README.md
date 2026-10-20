@@ -4,7 +4,9 @@ A phone-friendly web app for a household to track what it has, where it's kept, 
 
 This is a rebuild. The earlier Gemini-built version is tagged `legacy-gemini`; its specs and mockups are kept in [docs/legacy](docs/legacy). The plan and progress are in [docs/REBUILD_PLAN.md](docs/REBUILD_PLAN.md).
 
-**Built so far (phase 1):** accounts (sign up, log in, password reset by email) and families (invite by email, accept, admin/member roles, remove members, leave, belong to several families and switch between them).
+**Built so far:**
+- **Phase 1:** accounts (sign up, log in, password reset by email) and families (invite by email, accept, admin/member roles, remove members, leave, belong to several families and switch between them).
+- **Phase 2:** the family's catalog: locations, stores and aisles (add, rename, delete, with one-tap common suggestions) and items (quick add by name, search, and an edit page for aisle, stores, unit, low-stock level and notes).
 
 ## Stack
 
@@ -46,15 +48,18 @@ Review the generated file in `migrations/versions/` before committing. `tests/te
 homeinv/
   __init__.py     app factory: config, extensions, blueprints, error pages
   config.py       settings from environment variables; production refuses to start without required ones
-  models.py       User, Family, Membership, Invitation
-  security.py     reset tokens, safe redirects, email links, family access decorators
+  models.py       User, Family, Membership, Invitation; catalog: Location, Store, Aisle, Item
+  security.py     reset tokens, safe redirects, email links, family access checks and
+                  family-scoped lookups (every family-owned query goes through these)
   auth.py         sign up, log in, log out, password reset
   family.py       family page, invites, roles, members, switching families
+  catalog.py      locations, stores, aisles (shared routes) and items
   email.py        Mailjet / console / in-memory email backends
   forms.py        WTForms forms
   templates/      Jinja templates (base, auth, family, email)
 migrations/       Alembic migrations
-tests/            pytest tests; tests/e2e has the browser test
+tests/            pytest tests (helpers.py has the shared helpers); tests/e2e has the browser tests.
+                  test_isolation.py tries other families' IDs on every route that takes one.
 wsgi.py           entry point: gunicorn wsgi:app
 ```
 

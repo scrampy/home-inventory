@@ -4,6 +4,19 @@
 /* Comfortable tap targets on phones. */
 .btn { min-height: 2.5rem; }
 .btn-sm { min-height: 2.25rem; }
+/* Links, labels and summaries styled as buttons: center the text like real buttons do. */
+a.btn, label.btn, summary.btn { display: inline-flex; align-items: center; justify-content: center; }
+
+/* "Rename" toggles the edit form under its row, no JavaScript needed. */
+details.rename > summary { list-style: none; display: inline-flex; align-items: center; }
+details.rename > summary::-webkit-details-marker { display: none; }
+details.rename[open] > summary { background: var(--bs-secondary-bg); }
+.rename-form { display: none; }
+li:has(details.rename[open]) .rename-form { display: flex; }
+
+/* Store choices on the item page: large, wrapping tap targets. */
+.store-choices { display: flex; flex-wrap: wrap; gap: .5rem; }
+.store-choices .btn { min-height: 2.25rem; }
 
 .member-row { gap: .5rem; }
 .member-actions { gap: .5rem; }

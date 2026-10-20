@@ -10,8 +10,8 @@ bp = Blueprint("main", __name__)
 @bp.route("/")
 def index():
     if current_user.is_authenticated:
-        # The inventory screens arrive in a later phase; the family page is home for now.
-        return redirect(url_for("family.dashboard"))
+        # Inventory becomes the home page in phase 3; items are home for now.
+        return redirect(url_for("catalog.items"))
     return redirect(url_for("auth.login"))
 
 

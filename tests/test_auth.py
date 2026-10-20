@@ -1,4 +1,4 @@
-from conftest import PASSWORD, login, logout, signup, user
+from helpers import PASSWORD, login, logout, signup, user
 
 
 def test_signup_creates_family_with_user_as_admin(client):
@@ -38,7 +38,7 @@ def test_login_and_logout(client):
     assert client.get("/family").status_code == 302
 
     resp = login(client, "ann@example.com")
-    assert resp.status_code == 200 and b"Members" in resp.data
+    assert resp.status_code == 200 and resp.request.path == "/items"
     logout(client)
     assert client.get("/family").status_code == 302
 

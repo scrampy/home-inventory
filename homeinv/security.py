@@ -8,9 +8,10 @@ from urllib.parse import urlsplit
 from flask import abort, current_app, flash, g, redirect, request, url_for
 from flask_login import current_user, login_required
 from itsdangerous import BadSignature, URLSafeTimedSerializer
+from sqlalchemy import select
 
 from .extensions import db
-from .models import User
+from .models import User, name_key
 
 RESET_SALT = "password-reset"
 
@@ -99,3 +100,36 @@ def admin_required(view):
         return view(*args, **kwargs)
 
     return wrapped
+
+
+# --- Family-owned rows -----------------------------------------------------
+# Every query for family data goes through these, so one family can never
+# read or change another's rows, even by guessing IDs.
+
+def current_family_id():
+    return current_membership().family_id
+
+
+def family_select(model):
+    """SELECT of the current family's rows of `model`, ordered by name."""
+    return select(model).where(model.family_id == current_family_id()).order_by(model.name_key)
+
+
+def family_rows(model):
+    return db.session.scalars(family_select(model)).all()
+
+
+def get_for_family_or_404(model, row_id):
+    """The current family's row with this ID; another family's row looks like it doesn't exist."""
+    row = db.session.get(model, row_id)
+    if row is None or row.family_id != current_family_id():
+        abort(404)
+    return row
+
+
+def name_in_use(model, name, exclude_id=None):
+    """The current family's row of `model` already using this name (ignoring case and spacing)."""
+    query = select(model).where(model.family_id == current_family_id(), model.name_key == name_key(name))
+    if exclude_id is not None:
+        query = query.where(model.id != exclude_id)
+    return db.session.scalar(query)

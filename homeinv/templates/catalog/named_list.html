@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% from '_forms.html' import post_button %}
+{% block title %}{{ kind.plural }}{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">{{ kind.plural }}</h1>
+<p class="text-body-secondary small">{{ kind.blurb }}</p>
+
+<form method="post" class="mb-3" novalidate>
+  {{ form.csrf_token }}
+  <div class="input-group has-validation">
+    {{ form.name(class_='form-control' ~ (' is-invalid' if form.name.errors else ''),
+                 placeholder='New ' ~ kind.singular, aria_label='New ' ~ kind.singular, autocomplete='off') }}
+    <button class="btn btn-primary" type="submit">Add</button>
+    {% for error in form.name.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+  </div>
+</form>
+
+{% if rows %}
+<ul class="list-group mb-3">
+  {% for row in rows %}
+  <li class="list-group-item" data-testid="row">
+    <div class="d-flex align-items-center gap-2">
+      <span class="me-auto fw-medium">{{ row.name }}</span>
+      {% if row.id in counts %}
+        <span class="badge text-bg-light border">{{ counts[row.id] }} item{{ 's' if counts[row.id] != 1 }}</span>
+      {% endif %}
+      <details class="rename">
+        <summary class="btn btn-outline-secondary btn-sm">Rename</summary>
+      </details>
+      {{ post_button(url_for('catalog.delete', kind=kind.slug, row_id=row.id), 'Delete', 'btn btn-outline-danger btn-sm',
+                     confirm=kind.delete_warning.format(name=row.name)) }}
+    </div>
+    <form method="post" action="{{ url_for('catalog.rename', kind=kind.slug, row_id=row.id) }}"
+          class="rename-form gap-2 mt-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input class="form-control form-control-sm" name="name" value="{{ row.name }}" maxlength="80"
+             aria-label="New name for {{ row.name }}" required>
+      <button class="btn btn-primary btn-sm" type="submit">Save</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="text-body-secondary">No {{ kind.plural|lower }} yet.</p>
+{% endif %}
+
+{% if suggestions %}
+<div class="border rounded p-3 bg-body-tertiary">
+  <div class="small mb-2">Common {{ kind.plural|lower }}: {{ suggestions|join(', ') }}</div>
+  {{ post_button(url_for('catalog.add_suggestions', kind=kind.slug), 'Add these', 'btn btn-outline-primary btn-sm') }}
+</div>
+{% endif %}
+{% endblock %}
