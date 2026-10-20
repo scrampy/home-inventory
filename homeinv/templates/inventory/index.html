@@ -14,7 +14,7 @@
   {% for loc in locations %}
   <a class="btn btn-sm text-nowrap {{ 'btn-primary' if selected and selected.id == loc.id else 'btn-outline-secondary' }}"
      href="{{ url_for('inventory.index', location=loc.id) }}" {% if selected and selected.id == loc.id %}aria-current="page"{% endif %}>
-    {{ loc.name }}{% if counts.get(loc.id) %} <span class="opacity-75">{{ counts[loc.id] }}</span>{% endif %}
+    {{ loc.name }}{% if counts.get(loc.id) %}<span class="opacity-75 ms-1">{{ counts[loc.id] }}</span>{% endif %}
   </a>
   {% endfor %}
 </nav>
@@ -32,10 +32,10 @@
     </div>
     <div class="form-text">Pick an item or type a new one. Adding an item that's already here adds 1.</div>
   {% else %}
-    <div class="d-flex gap-2">
-      <input class="form-control" name="name" list="item-names" maxlength="80" required
-             placeholder="Item" aria-label="Item to add">
-      <select class="form-select w-auto" name="location_id" aria-label="Location" required>
+    <div class="d-flex flex-wrap gap-2">
+      <input class="form-control flex-grow-1 add-item-name" name="name" list="item-names" maxlength="80" required
+             placeholder="Add an item" aria-label="Item to add">
+      <select class="form-select w-auto flex-grow-1" name="location_id" aria-label="Location" required>
         {% for loc in locations %}<option value="{{ loc.id }}">{{ loc.name }}</option>{% endfor %}
       </select>
       <button class="btn btn-primary" type="submit">Add</button>

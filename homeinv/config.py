@@ -61,6 +61,7 @@ def load_config(instance_path, overrides=None):
 
     if env == "development":
         config["SECRET_KEY"] = config["SECRET_KEY"] or "dev-only-not-secret"
+        config["TEMPLATES_AUTO_RELOAD"] = True  # template edits show without a restart
         config["EMAIL_BACKEND"] = config["EMAIL_BACKEND"] or (
             "mailjet" if config["MAILJET_API_KEY"] else "console"
         )

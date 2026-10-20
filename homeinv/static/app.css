@@ -23,6 +23,9 @@ li:has(details.rename[open]) .rename-form { display: flex; }
 /* Location filter: one scrollable row of buttons on phones. */
 .loc-pills { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .25rem; }
 .loc-pills .btn { flex-shrink: 0; }
+/* All-locations quick add: item name on its own line on phones. */
+.add-item-name { flex-basis: 100%; }
+@media (min-width: 576px) { .add-item-name { flex-basis: 0; } }
 
 /* Store choices on the item page: large, wrapping tap targets. */
 .store-choices { display: flex; flex-wrap: wrap; gap: .5rem; }
