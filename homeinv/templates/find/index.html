@@ -61,6 +61,7 @@
         {% elif r.total <= 0 %}<span class="badge-warn">Out</span>
         {% else %}<span class="fw-semibold">{{ r.total|qty }}{% if r.item.default_unit %} {{ r.item.default_unit }}{% endif %} in stock</span>{% endif %}
       </a>
+      {% if r.price %}<div class="small text-body-secondary" data-testid="result-price">Usually {{ r.price.usual|money }} · last {{ r.price.last.cents|money }}{% if r.price.last.store %} at {{ r.price.last.store.name }}{% endif %}</div>{% endif %}
       {% if r.stock %}
       <div class="d-flex flex-column gap-1">
         {% for s in r.stock %}

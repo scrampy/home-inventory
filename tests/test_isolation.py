@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from helpers import invite, signup, user
 from homeinv.extensions import db
-from homeinv.models import Aisle, Family, Invitation, Item, ListEntry, Location, Membership, Stock, Store
+from homeinv.models import Aisle, Family, Invitation, Item, ListEntry, Location, Membership, Price, Stock, Store
 
 
 @pytest.fixture
@@ -29,6 +29,8 @@ def two_families(client, new_client):
     eve_loc = db.session.scalar(select(Location.id).filter_by(name="Eve pantry"))
     eve.post("/inventory/add", data={"location_id": eve_loc, "name": "Eve item"})
     eve.post("/list/add", data={"name": "Eve item"})
+    eve_item = db.session.scalar(select(Item.id).filter_by(name="Eve item"))
+    eve.post(f"/items/{eve_item}/prices", data={"price": "4.99"})
     invite(eve, "friend@example.com")
     # Ann's own rows, to mix with Eve's IDs.
     client.post("/stores", data={"name": "Ann store"})
@@ -44,6 +46,7 @@ def two_families(client, new_client):
         "item": db.session.scalar(select(Item.id).filter_by(name="Eve item")),
         "stock": db.session.scalar(select(Stock.id)),
         "entry": db.session.scalar(select(ListEntry.id)),
+        "price": db.session.scalar(select(Price.id)),
         "ann_store": db.session.scalar(select(Store.id).filter_by(name="Ann store")),
         "ann_item": db.session.scalar(select(Item.id).filter_by(name="Ann item")),
     }
@@ -82,6 +85,11 @@ CASES = {
     "shopping.toggle_cart": [("POST", "/list/{entry}/cart", {})],
     "shopping.quantity": [("POST", "/list/{entry}/quantity", {"delta": "1"})],
     "shopping.remove": [("POST", "/list/{entry}/remove", {})],
+    "prices.add": [
+        ("POST", "/items/{item}/prices", {"price": "0.01"}),                              # Eve's item
+        ("POST", "/items/{ann_item}/prices", {"price": "0.01", "store_id": "{store}"}),   # Eve's store in the form
+    ],
+    "prices.delete": [("POST", "/prices/{price}/delete", {})],
     "inventory.adjust": [("POST", "/inventory/{stock}/adjust", {"delta": "1"})],
     "inventory.set_quantity": [("POST", "/inventory/{stock}/set", {"quantity": "99"})],
     "inventory.delete": [("POST", "/inventory/{stock}/delete", {})],
@@ -105,6 +113,9 @@ def snapshot():
         select(ListEntry).filter_by(family_id=eve_family.id)))
     rows["item_stores"] = sorted((i.name, tuple(s.name for s in i.stores)) for i in db.session.scalars(
         select(Item)))
+    rows["prices"] = sorted((pr.item.name, pr.cents) for pr in db.session.scalars(
+        select(Price).filter_by(family_id=eve_family.id)))
+    rows["all_prices"] = db.session.query(Price).count()
     rows["family"] = eve_family.name
     rows["members"] = sorted((m.user.email, m.role) for m in eve_family.memberships)
     rows["invites"] = [(i.email, i.revoked_at) for i in eve_family.invitations]
@@ -117,6 +128,7 @@ def test_other_familys_ids_are_not_found(client, two_families, endpoint):
     before = snapshot()
     for method, template, data in CASES[endpoint]:
         url = template.format(**two_families)
+        data = {k: (v.format(**two_families) if isinstance(v, str) else v) for k, v in data.items()}
         resp = client.open(url, method=method, data=data)
         assert resp.status_code == 404, f"{method} {url} returned {resp.status_code}"
     assert snapshot() == before

@@ -81,6 +81,11 @@ a.row-hi:hover { background: #fafbf9; color: inherit; }
 .stock-row .row-hi { padding: 0; }
 .is-saving { opacity: .55; transition: opacity .1s; }
 
+/* Price check verdicts. Colour plus words, never colour alone. */
+.verdict-good { background: var(--hi-accent-soft); color: var(--hi-accent-dark); }
+.verdict-high { background: var(--hi-warn-bg); color: var(--hi-warn-ink); }
+.verdict-usual { background: var(--hi-line-soft); color: var(--hi-ink); }
+
 /* Places tree: nested <details>. */
 .tree { background: var(--hi-surface); border-radius: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,.05); padding: .25rem 0; }
 .tree details > summary { list-style: none; }

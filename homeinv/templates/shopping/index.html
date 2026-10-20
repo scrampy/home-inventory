@@ -19,6 +19,7 @@
         {% elif not e.item.stores %}{% set _ = detail.append('Any store') %}
         {% elif store not in e.item.stores %}{% set _ = detail.append('Usually ' ~ where) %}{% endif %}
         {% if e.note %}{% set _ = detail.append(e.note) %}{% endif %}
+        {% if usual.get(e.id) %}{% set _ = detail.append('usually ' ~ (usual[e.id]|money)) %}{% endif %}
         {% if detail %}<span class="row-sub">{{ detail|join(' · ') }}</span>{% endif %}
         {% endif %}
       </span>

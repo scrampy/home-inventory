@@ -302,3 +302,26 @@ def format_quantity(value):
         return ""
     text = f"{value:.2f}".rstrip("0").rstrip(".")
     return text or "0"
+
+
+class Price(db.Model):
+    """A price the family paid (or saw) for one of an item, e.g. $4.99 at Costco.
+
+    Light on purpose: the date is the day it was recorded and isn't edited;
+    a wrong one is deleted rather than fixed. Amounts are whole cents.
+    """
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    family_id: Mapped[int] = mapped_column(ForeignKey("family.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("item.id", ondelete="CASCADE"), index=True)
+    store_id: Mapped[int | None] = mapped_column(ForeignKey("store.id", ondelete="SET NULL"))
+    cents: Mapped[int]
+    recorded_at: Mapped[datetime] = mapped_column(default=utcnow)
+    added_by_id: Mapped[int | None] = mapped_column(ForeignKey("user.id", ondelete="SET NULL"))
+
+    item: Mapped[Item] = relationship(back_populates="prices")
+    store: Mapped[Store | None] = relationship()
+
+
+Item.prices = relationship(Price, back_populates="item", passive_deletes=True,
+                           order_by=lambda: Price.recorded_at.desc())

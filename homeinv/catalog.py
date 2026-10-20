@@ -214,13 +214,22 @@ def item(item_id):
     """What a family member wants to know: how many, where, is it on the list, where to buy it."""
     from .places import place_choices
 
+    from .prices import parse_money, shopping_store, summary, verdict
+
     item = get_for_family_or_404(Item, item_id)
     stock = sorted(item.stock, key=lambda s: -s.quantity)
     kept_at = {s.location_id for s in stock}
     total = sum(s.quantity for s in stock)
     entry = item.list_entry
+    price_info = summary(item)
+    check_text = (request.args.get("check") or "").strip()
+    check_cents = parse_money(check_text) if check_text else None
     return render_template(
         "catalog/item.html", item=item, stock=stock, total=total,
+        price_info=price_info, check_text=check_text, check_cents=check_cents,
+        check=verdict(check_cents, price_info) if check_cents else None,
+        check_invalid=bool(check_text) and check_cents is None,
+        price_store=shopping_store(),
         is_out=bool(stock) and total <= 0,
         is_low=total > 0 and item.low_stock_threshold is not None and total <= item.low_stock_threshold,
         entry=entry if entry is not None and not entry.in_cart else None,

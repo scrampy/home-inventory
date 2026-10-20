@@ -51,6 +51,9 @@ Decided 2026-10-20: rebuild rather than continue the Gemini-built code (tag `leg
 
 ## Not yet done
 
+- **Email:** invitations and password resets need working Mailjet keys (parked 2026-10-20). Invites work meanwhile through the copyable link on the family page.
+- **Per-unit prices** ($/kg across pack sizes): left out to keep prices light.
+
 - **Email verification for ordinary sign-ups.** Invited users are marked verified because they clicked an emailed link. Others are not verified, and nothing currently depends on it.
 - **Deleting a family.** The only member of a family can't leave it yet.
 - **Rate limits are kept in memory per worker.** That's fine for one small instance. If it ever scales out, use Redis.

@@ -15,6 +15,7 @@ from .forms import ActionForm
 from .inventory import MAX_QUANTITY, find_or_create_item, get_or_create_stock
 from .models import Aisle, Item, ListEntry, Location, Stock, Store, clean_name, format_quantity
 from .places import place_choices
+from .prices import parse_money, record as record_price, shopping_store, summary as price_summary
 from .security import current_family_id, family_required, family_rows, get_for_family_or_404, safe_next_url
 from flask_login import current_user
 
@@ -101,7 +102,8 @@ def index():
         select(ListEntry).where(ListEntry.family_id == current_family_id())
         .join(ListEntry.item).order_by(Item.name_key)
         .options(selectinload(ListEntry.item).selectinload(Item.stores),
-                 selectinload(ListEntry.item).selectinload(Item.aisle))).all()
+                 selectinload(ListEntry.item).selectinload(Item.aisle),
+                 selectinload(ListEntry.item).selectinload(Item.prices))).all()
     to_get = [e for e in entries if not e.in_cart]
     cart = [e for e in entries if e.in_cart]
     visible = [e for e in to_get if show_all or _sold_at(e, store)]
@@ -121,8 +123,14 @@ def index():
     suggestions = [r for r in running_low() if r["item"].id not in on_list][:8]
     item_names = db.session.scalars(select(Item.name).where(Item.family_id == current_family_id())
                                     .order_by(Item.name_key)).all()
+    usual = {}
+    for e in entries:
+        info = price_summary(e.item)
+        if info:
+            at_store = dict(info["stores"]).get(store) if store else None
+            usual[e.id] = at_store or info["usual"]
     return render_template(
-        "shopping/index.html", store=store, stores=family_rows(Store), groups=groups, cart=cart,
+        "shopping/index.html", store=store, usual=usual, stores=family_rows(Store), groups=groups, cart=cart,
         to_get=to_get, hidden=len(to_get) - len(visible), show_all=show_all,
         suggestions=suggestions, item_names=item_names)
 
@@ -227,6 +235,18 @@ def done():
         if action not in ("put_away", "clear"):
             abort(400)
         added = []
+        bought_at = None
+        store_id = request.form.get("store_id", "")
+        if store_id:
+            if not store_id.isdigit():
+                abort(400)
+            bought_at = get_for_family_or_404(Store, int(store_id))
+        priced = 0
+        for entry in cart:
+            cents = parse_money(request.form.get(f"price_{entry.id}"))
+            if cents is not None:
+                record_price(entry.item, cents, bought_at)
+                priced += 1
         if action == "put_away":
             for entry in cart:
                 value = request.form.get(f"place_{entry.id}", "")
@@ -242,9 +262,12 @@ def done():
         db.session.commit()
         if added:
             flash("Put away: " + ", ".join(added) + ".", "success")
+        if priced:
+            flash(f"Saved {priced} price{'s' if priced != 1 else ''}.", "success")
         flash(f"Cleared {names} item{'s' if names != 1 else ''} from the list.", "info")
         return redirect(url_for(".index"))
 
     rows = [{"entry": e, "suggested": _suggested_place(e.item),
              "qty": format_quantity(e.quantity)} for e in cart]
-    return render_template("shopping/done.html", rows=rows, choices=place_choices())
+    return render_template("shopping/done.html", rows=rows, choices=place_choices(),
+                           stores=family_rows(Store), bought_at=shopping_store())

@@ -10,6 +10,7 @@ from .forms import ActionForm
 from .inventory import find_or_create_item
 from .models import Item, Stock, clean_name, name_key
 from .security import current_family_id, family_required
+from .prices import summary as price_summary
 from .shopping import open_count, running_low
 
 bp = Blueprint("find", __name__)
@@ -22,7 +23,8 @@ def search(query):
     items = db.session.scalars(
         select(Item).where(Item.family_id == current_family_id(), Item.name_key.contains(key, autoescape=True))
         .order_by(Item.name_key).limit(MAX_RESULTS)
-        .options(selectinload(Item.stock).selectinload(Stock.location), selectinload(Item.list_entry))).all()
+        .options(selectinload(Item.stock).selectinload(Stock.location), selectinload(Item.list_entry),
+                 selectinload(Item.prices))).all()
     # Names that start with the search come first: "milk" → "Milk" before "Coconut Milk".
     items.sort(key=lambda i: (not i.name_key.startswith(key), i.name_key))
     results = []
@@ -33,6 +35,7 @@ def search(query):
             "stock": stock,
             "total": sum(s.quantity for s in stock),
             "on_list": item.list_entry is not None and not item.list_entry.in_cart,
+            "price": price_summary(item),
         })
     return results
 

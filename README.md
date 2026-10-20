@@ -13,6 +13,7 @@ This is a rebuild. The earlier Gemini-built version is tagged `legacy-gemini`; i
   - **Places**: a tree (Home › Basement › Freezer) with counts rolled up; each place lists its contents with -/+.
   - **List**: one family shopping list; pick the store you're at, grouped by aisle in store order, tap to put things in the cart, "Done shopping" adds them to the inventory.
   - **More**: items, stores, aisles (reorder them), places, family, account.
+- **Prices:** record what you paid (at Done shopping, or on an item's page). Each item shows its usual price (median of the last 5) and the lowest paid. Type a shelf price to see if it's a good one. Dates are automatic; a wrong price is removed rather than edited.
 - **Import:** `flask --app wsgi import-sharepoint <folder> --family <name or ID> [--commit]` loads the old Power Apps SharePoint exports into a family. Without `--commit` it's a dry run.
 
 ## Stack
@@ -65,6 +66,7 @@ homeinv/
   places.py       the places tree and place pages
   inventory.py    stock changes: +/- and quantity updates (in place via static/app.js)
   shopping.py     the shopping list, store mode and put-away
+  prices.py       prices paid, usual price, shelf-price check
   importers/      one-off import of the old Power Apps (SharePoint) data; cli.py has the command
   email.py        Mailjet / console / in-memory email backends
   forms.py        WTForms forms

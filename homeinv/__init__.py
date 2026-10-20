@@ -72,9 +72,11 @@ def create_app(overrides=None):
     from .inventory import bp as inventory_bp
     from .main import bp as main_bp
     from .places import bp as places_bp
+    from .prices import bp as prices_bp
     from .shopping import bp as shopping_bp
 
-    for blueprint in (main_bp, auth_bp, family_bp, find_bp, places_bp, catalog_bp, inventory_bp, shopping_bp):
+    for blueprint in (main_bp, auth_bp, family_bp, find_bp, places_bp, catalog_bp, inventory_bp, shopping_bp,
+                      prices_bp):
         app.register_blueprint(blueprint)
 
     from . import cli

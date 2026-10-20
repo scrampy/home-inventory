@@ -9,6 +9,14 @@
     <p class="text-body-secondary m-0">We'll add these to the inventory where you choose, and take them off the list.</p>
   </div>
 
+  <div class="card-hi p-3 d-flex align-items-center gap-2">
+    <label class="fw-semibold text-nowrap" for="bought-at">Bought at</label>
+    <select class="form-select" name="store_id" id="bought-at">
+      <option value="">No store</option>
+      {% for s in stores %}<option value="{{ s.id }}" {% if bought_at and s.id == bought_at.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+    </select>
+  </div>
+
   <ul class="list-hi">
     {% for r in rows %}
     <li class="p-3 d-flex flex-column gap-2" data-testid="put-away">
@@ -20,6 +28,11 @@
         <option value="">Don't add to the inventory</option>
         {% for id, label in choices %}<option value="{{ id }}" {% if id == r.suggested %}selected{% endif %}>{{ label }}</option>{% endfor %}
       </select>
+      <div class="input-group input-group-sm">
+        <span class="input-group-text">Paid $</span>
+        <input class="form-control" name="price_{{ r.entry.id }}" inputmode="decimal" autocomplete="off"
+               placeholder="each (optional)" aria-label="Price paid for one {{ r.entry.item.name }}">
+      </div>
     </li>
     {% endfor %}
   </ul>

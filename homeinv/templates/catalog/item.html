@@ -55,6 +55,73 @@
     {% endif %}
   </section>
 
+  <section id="prices" class="d-flex flex-column gap-2">
+    <h2 class="h6 fw-bold m-0" style="font-size: 1.0625rem">Price</h2>
+    <div class="card-hi p-3 d-flex flex-column gap-3">
+      {% if price_info %}
+      <div class="d-flex align-items-baseline gap-2 flex-wrap">
+        <span class="fw-bold" style="font-size: 1.75rem; line-height: 1" data-testid="usual-price">{{ price_info.usual|money }}</span>
+        <span class="text-body-secondary">usually{% if item.default_unit %} per {{ item.default_unit }}{% endif %}</span>
+      </div>
+      <div class="small d-flex flex-column gap-1" style="color: #3D4542">
+        <span>Last paid {{ price_info.last.cents|money }}{% if price_info.last.store %} at {{ price_info.last.store.name }}{% endif %} · {{ price_info.last.recorded_at|ago }}</span>
+        {% if price_info.count > 1 %}<span>Lowest {{ price_info.lowest.cents|money }}{% if price_info.lowest.store %} at {{ price_info.lowest.store.name }}{% endif %} · {{ price_info.lowest.recorded_at|ago }}</span>{% endif %}
+        {% if price_info.stores|length > 1 %}
+        <span>{% for store, cents in price_info.stores %}{{ store.name }} {{ cents|money }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="small text-body-secondary">No prices yet. Check one below and save it, or add prices when you finish shopping.</div>
+      {% endif %}
+
+      <form method="get" action="{{ url_for('catalog.item', item_id=item.id) }}#prices" class="d-flex gap-2 m-0" role="search">
+        <label class="visually-hidden" for="check-price">Price on the shelf</label>
+        <div class="input-group">
+          <span class="input-group-text">$</span>
+          <input class="form-control{{ ' is-invalid' if check_invalid }}" id="check-price" name="check" value="{{ check_text }}"
+                 inputmode="decimal" autocomplete="off" placeholder="Price on the shelf">
+        </div>
+        <button class="btn btn-outline-primary text-nowrap" type="submit">Check</button>
+      </form>
+      {% if check_invalid %}<div class="small text-danger">Enter a price like 4.99.</div>{% endif %}
+
+      {% if check %}
+      <div class="rounded-3 p-3 d-flex flex-column gap-2 {{ {'good': 'verdict-good', 'high': 'verdict-high'}.get(check.kind, 'verdict-usual') }}" role="status" data-testid="verdict">
+        <div class="fw-bold">{{ check_cents|money }}: {{ check.text }}</div>
+        <form method="post" action="{{ url_for('prices.add', item_id=item.id) }}" class="d-flex gap-2 m-0 flex-wrap">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="price" value="{{ check_cents / 100 }}">
+          <input type="hidden" name="next" value="{{ url_for('catalog.item', item_id=item.id) }}#prices">
+          <select class="form-select form-select-sm w-auto flex-grow-1" name="store_id" aria-label="Store">
+            <option value="">No store</option>
+            {% for s in stores %}<option value="{{ s.id }}" {% if price_store and s.id == price_store.id %}selected{% endif %}>at {{ s.name }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-sm btn-primary" type="submit">Save this price</button>
+        </form>
+      </div>
+      {% endif %}
+
+      {% if item.prices %}
+      <details>
+        <summary class="small fw-semibold">Price history ({{ item.prices|length }})</summary>
+        <ul class="list-unstyled m-0 mt-2 d-flex flex-column gap-1" data-testid="price-history">
+          {% for p in item.prices[:20] %}
+          <li class="d-flex align-items-center gap-2 small">
+            <span class="fw-semibold" style="min-width: 4.5rem">{{ p.cents|money }}</span>
+            <span class="flex-grow-1 text-body-secondary">{{ p.store.name if p.store else 'No store' }} · {{ p.recorded_at|ago }}</span>
+            <form method="post" action="{{ url_for('prices.delete', price_id=p.id) }}" class="m-0"
+                  onsubmit="return confirm('Remove this price?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-link btn-sm text-danger p-0" style="min-height: 0" type="submit" aria-label="Remove {{ p.cents|money }} from {{ p.recorded_at|ago }}">Remove</button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+    </div>
+  </section>
+
   <section class="d-flex flex-column gap-2">
     <h2 class="h6 fw-bold m-0" style="font-size: 1.0625rem">Where it's kept</h2>
     {% if stock %}
