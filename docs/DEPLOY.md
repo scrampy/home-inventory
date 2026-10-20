@@ -1,5 +1,15 @@
 # Deploying on Coolify
 
+**Status (2026-10-20):** deployed from branch `rebuild` at https://home-inventory-dev.scrampy.cc. The settings below are in place. To redeploy after pushing, use the API (below) or the Redeploy button. The GitHub webhook can't reach Coolify, so pushes don't deploy on their own.
+
+## Deploying through the API
+
+The `claude-code` API token (deploy, read, write) is stored as `COOLIFY_API_TOKEN` in `bookshelf-analyzer/.env`.
+
+```bash
+curl -H "Authorization: Bearer $COOLIFY_API_TOKEN" "http://10.2.2.240:8000/api/v1/deploy?uuid=m8c8wg0sockg4kowsckcoows"
+```
+
 The app runs from the `Dockerfile`. On start, the container updates the database schema and then serves the app with gunicorn on `$PORT`. It keeps its SQLite database in `/app/data`, which must be a persistent volume.
 
 ## Settings for the existing Coolify app (`home-inventory`, `m8c8wg0sockg4kowsckcoows`)
@@ -13,6 +23,8 @@ Coolify dashboard: http://10.2.2.240:8000 (home network only).
 3. **Environment Variables:** add
    - `APP_BASE_URL` = `https://home-inventory-dev.scrampy.cc` (used for links in emails)
    - `PROXY_HOPS` = `2` (Cloudflare Tunnel → Traefik; used to rate-limit by the visitor's real IP)
+   - `PORT` = `3000`
+   - `SECRET_KEY` = 64 random characters, runtime only (set on 2026-10-20; the old `FLASK_SECRET_KEY` is 31 characters, too short)
 
    Keep `FLASK_SECRET_KEY` and the four `MAILJET_*` variables: the app reads them under their old names. `FLASK_SECRET_KEY` must be at least 32 characters; if it's shorter, the container stops with a clear error, so replace it:
    ```
@@ -22,7 +34,7 @@ Coolify dashboard: http://10.2.2.240:8000 (home network only).
 
    `FLASK_ENV` and `SECURITY_PASSWORD_SALT` are no longer used and can be deleted.
 4. **Persistent Storage → Add → Volume:** name `home-inventory-data`, destination path `/app/data`. Without it, every redeploy starts with an empty database.
-5. **Health check (optional):** path `/healthz`, port `3000`. The image also has its own Docker health check.
+5. **Health check:** path `/healthz`, port `3000` (was `/`, which redirects to the login page).
 6. **Deploy.** The deploy log should end with lines like:
    ```
    Running upgrade  -> 2190ecdb91dd, accounts and families
