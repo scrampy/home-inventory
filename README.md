@@ -1,72 +1,63 @@
-# Home Inventory Web Application
+# Home Inventory
 
-This project is a web application for managing home inventory, designed for families. It uses a Flask backend and a React frontend.
+A phone-friendly web app for a household to track what it has, where it's kept, and what to buy. Several families can use one installation, and each family sees only its own data.
 
-## Project Structure
+This is a rebuild. The earlier Gemini-built version is tagged `legacy-gemini`; its specs and mockups are kept in [docs/legacy](docs/legacy). The plan and progress are in [docs/REBUILD_PLAN.md](docs/REBUILD_PLAN.md).
 
-```
-home-inventory/
-├── backend/                # Flask backend
-│   ├── app/                # Application code (models, routes, etc.)
-│   ├── migrations/         # Database migrations (Flask-Migrate)
-│   ├── requirements.txt    # Python dependencies
-│   ├── config.py           # Configuration settings
-│   └── run.py              # Entry point for Flask app
-│
-├── frontend/               # React frontend
-│   ├── public/             # Static files
-│   ├── src/                # React source code
-│   ├── package.json        # Node dependencies and scripts
-│   └── README.md
-│
-├── README.md               # Project overview and setup instructions
-└── .gitignore
+**Built so far (phase 1):** accounts (sign up, log in, password reset by email) and families (invite by email, accept, admin/member roles, remove members, leave, belong to several families and switch between them).
+
+## Stack
+
+Flask 3 with server-rendered Jinja pages and Bootstrap 5 · SQLAlchemy 2 with Flask-Migrate (Alembic) · SQLite · Flask-Login · Flask-WTF (CSRF) · Flask-Limiter · Mailjet for email · pytest and Playwright.
+
+## Run it locally (Windows)
+
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\pip install -r requirements-dev.txt
+copy .env.example .env
+.venv\Scripts\flask --app wsgi db upgrade
+.venv\Scripts\flask --app wsgi run --port 5050
 ```
 
-## Getting Started
+Open http://localhost:5050. Without Mailjet keys, emails (invites, password resets) are printed to the console, and you can copy the link from there.
 
-### Backend (Flask)
-1. Navigate to the `backend` directory
-2. Create a virtual environment and activate it
-3. Install dependencies: `pip install -r requirements.txt`
-4. Run the app: `python run.py`
+## Tests
 
-### Frontend (React)
-1. Navigate to the `frontend` directory
-2. Install dependencies: `npm install`
-3. Start the app: `npm start`
+```powershell
+.venv\Scripts\python -m pytest                                  # unit and integration tests
+.venv\Scripts\python -m pytest -m e2e --browser-channel msedge  # browser test, using installed Edge
+```
 
-## What a Clean Rewrite Should Look Like
+## Changing the database schema
 
-- **App Structure:**
-  - One main App component with a simple screen state (e.g., `screen`).
-  - Dedicated components for ItemList, ItemForm, StoreList, StoreForm, etc.
-- **Navigation:**
-  - Minimal, explicit navigation logic (e.g., `useState('screen')`).
-- **Form Handling:**
-  - Each form manages its own state.
-  - On error, error messages are displayed inline, input is preserved, and navigation does not change.
-- **API Calls:**
-  - Simple fetch/axios calls with clear error handling.
-- **No Over-Engineering:**
-  - No unnecessary keys, localStorage hacks, or defensive double state.
-- **Testing:**
-  - Easy to test and reason about each component.
+Edit `homeinv/models.py`, then:
 
-## Recommendations
+```powershell
+.venv\Scripts\flask --app wsgi db migrate -m "describe the change"
+.venv\Scripts\flask --app wsgi db upgrade
+```
 
-- **Start a new, clean repo or directory.**
-  - Scaffold the app with Create React App or Vite (for frontend), Flask/FastAPI (for backend if using Python).
-  - Implement only the core screens and flows.
-  - Keep state and navigation logic as simple as possible.
-  - Add error handling as a first-class concern in each form.
+Review the generated file in `migrations/versions/` before committing. `tests/test_app.py::test_migrations_match_models` fails if the models and migrations drift apart.
 
-**Estimated time for a working CRUD app:**
-- **Frontend:** 1–2 days for all screens and error handling.
-- **Backend:** 1 day for REST endpoints and DB models.
+## Layout
 
-A clean rewrite will be faster, simpler, and more maintainable than continuing to patch the current codebase.
+```
+homeinv/
+  __init__.py     app factory: config, extensions, blueprints, error pages
+  config.py       settings from environment variables; production refuses to start without required ones
+  models.py       User, Family, Membership, Invitation
+  security.py     reset tokens, safe redirects, email links, family access decorators
+  auth.py         sign up, log in, log out, password reset
+  family.py       family page, invites, roles, members, switching families
+  email.py        Mailjet / console / in-memory email backends
+  forms.py        WTForms forms
+  templates/      Jinja templates (base, auth, family, email)
+migrations/       Alembic migrations
+tests/            pytest tests; tests/e2e has the browser test
+wsgi.py           entry point: gunicorn wsgi:app
+```
 
----
+## Production settings
 
-This project is in the early stages. See `HomeInventorySpec.md` for the specification.
+Set `APP_ENV=production`, `SECRET_KEY`, `APP_BASE_URL`, `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAIL_FROM_EMAIL`, and `DATABASE_URL` pointing at a persistent volume. See [.env.example](.env.example). The app won't start if any of these are missing.

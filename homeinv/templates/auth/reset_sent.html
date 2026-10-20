@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Check your email{% endblock %}
+{% block content %}
+<div class="card shadow-sm mx-auto" style="max-width: 26rem">
+  <div class="card-body p-4">
+    <h1 class="h4 mb-2">Check your email</h1>
+    <p>If <strong>{{ email }}</strong> has an account, we've sent it a link to reset the password. The link works once and expires in an hour.</p>
+    <a class="btn btn-outline-primary w-100" href="{{ url_for('auth.login') }}">Back to log in</a>
+  </div>
+</div>
+{% endblock %}

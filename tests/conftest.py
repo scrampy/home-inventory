@@ -1,105 +1,87 @@
-import os
-import sys
-import threading
-import time
-import requests
-import subprocess
-import socket
-import random
-import string
+import re
 
-# Set these before importing app for E2E/Playwright tests
-os.environ['E2E_TEST'] = '1'
-os.environ['TEST_DB_PATH'] = os.path.abspath(os.path.join(os.path.dirname(__file__), '../test.db'))
 import pytest
-sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
-from app import db, app
+from flask.testing import FlaskClient
+from sqlalchemy import select
 
-class FlaskServerThread(threading.Thread):
-    def __init__(self):
-        super().__init__()
-        self.proc = None
-        self.logfile = None
-        self.port = self._find_free_port()
-    def _find_free_port(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("127.0.0.1", 0))
-            return s.getsockname()[1]
-    def run(self):
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        env = os.environ.copy()
-        env['FLASK_TESTING'] = '1'
-        env['PORT'] = str(self.port)
-        rand_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
-        self.logfile = os.path.join(project_root, f'flask_server_{rand_suffix}.log')
-        python_executable = sys.executable
-        flask_app_script = os.path.join(project_root, "app.py")
-        try:
-            self.proc = subprocess.Popen(
-                [python_executable, flask_app_script],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                cwd=project_root,
-                env=env,
-                text=True
-            )
-            time.sleep(1)
-            self.proc.poll()
-            if self.proc.returncode is not None:
-                stdout, stderr = self.proc.communicate(timeout=5)
-                raise AssertionError("Flask app did not start")
-            for _ in range(20):
-                try:
-                    with socket.create_connection(("127.0.0.1", self.port), timeout=1):
-                        return
-                except Exception:
-                    time.sleep(0.5)
-            stdout, stderr = self.proc.communicate(timeout=5)
-            raise AssertionError("Flask app did not start")
-        except Exception as e:
-            raise
-    def stop(self):
-        if self.proc:
-            self.proc.terminate()
-            self.proc.wait()
+from homeinv import create_app
+from homeinv.extensions import db
+from homeinv.models import User
 
-def wait_for_server(url, timeout=10):
-    start = time.time()
-    while time.time() - start < timeout:
-        try:
-            r = requests.get(url)
-            if r.status_code == 200:
-                return True
-        except Exception:
-            pass
-        time.sleep(0.5)
-    return False
+PASSWORD = "correct-horse-1"
 
-@pytest.fixture(scope="session", autouse=False)
-def flask_server():
-    server = FlaskServerThread()
-    server.start()
-    base_url = f"http://localhost:{server.port}"
-    assert wait_for_server(f"{base_url}/auth"), "Flask app did not start"
-    yield base_url
-    server.stop()
 
-@pytest.fixture(scope="session", autouse=True)
-def ensure_db_created():
+class FreshContextClient(FlaskClient):
+    """Gives every request its own app context, as in production.
+
+    Tests hold an app context open so they can query the database. Without this,
+    requests would reuse it and share `flask.g`, where Flask-Login caches the
+    signed-in user, so two "browsers" would see each other's logins.
+    """
+
+    def open(self, *args, **kwargs):
+        with self.application.app_context():
+            response = super().open(*args, **kwargs)
+        db.session.expire_all()  # see what the request wrote
+        return response
+
+
+@pytest.fixture
+def app():
+    app = create_app({"APP_ENV": "testing", "WTF_CSRF_ENABLED": False})
+    app.test_client_class = FreshContextClient
     with app.app_context():
         db.create_all()
-    yield
-
-@pytest.fixture(scope='session', autouse=True)
-def setup_e2e_db():
-    # Use persistent test DB for E2E
-    with app.app_context():
+        yield app
+        db.session.remove()
         db.drop_all()
-    yield
-    # Clean up test DB after session
-    try:
-        db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../test.db'))
-        os.remove(db_path)
-        print('DEBUG: test.db deleted after session', flush=True)
-    except Exception as e:
-        print(f'DEBUG: Failed to delete test.db: {e}', flush=True)
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+
+@pytest.fixture
+def new_client(app):
+    """Another browser: a separate cookie jar for a second user."""
+    return app.test_client
+
+
+@pytest.fixture
+def outbox(app):
+    return app.extensions["email_backend"].outbox
+
+
+def signup(client, email, password=PASSWORD, name="", family_name="", invite=None):
+    data = {"email": email, "password": password, "confirm": password, "name": name,
+            "family_name": family_name}
+    url = "/signup"
+    if invite:
+        data["invite"] = invite
+        url += f"?invite={invite}"
+    return client.post(url, data=data, follow_redirects=True)
+
+
+def login(client, email, password=PASSWORD, next_url=None):
+    url = "/login" + (f"?next={next_url}" if next_url else "")
+    return client.post(url, data={"email": email, "password": password}, follow_redirects=True)
+
+
+def logout(client):
+    return client.post("/logout", follow_redirects=True)
+
+
+def user(email):
+    return db.session.scalar(select(User).filter_by(email=email))
+
+
+def link_path(message):
+    """The path of the first app link in an email (the test base URL is stripped)."""
+    match = re.search(r"http://testserver\.local(/\S+)", message.text)
+    assert match, f"no link in email: {message.text}"
+    return match.group(1)
+
+
+def invite(client, email):
+    return client.post("/family/invite", data={"email": email}, follow_redirects=True)

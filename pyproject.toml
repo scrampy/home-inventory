@@ -1,0 +1,12 @@
+[project]
+name = "home-inventory"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# Browser tests are slower and need a browser; run them with: pytest -m e2e
+addopts = "-m 'not e2e'"
+markers = ["e2e: end-to-end tests that drive a real browser"]
+filterwarnings = ["error::DeprecationWarning:homeinv.*"]

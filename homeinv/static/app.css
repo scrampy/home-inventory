@@ -1,0 +1,9 @@
+/* Phone-first: keep content to a readable column on wide screens. */
+.container.narrow { max-width: 720px; }
+
+/* Comfortable tap targets on phones. */
+.btn { min-height: 2.5rem; }
+.btn-sm { min-height: 2.25rem; }
+
+.member-row { gap: .5rem; }
+.member-actions { gap: .5rem; }

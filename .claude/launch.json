@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "home-inventory",
+      "runtimeExecutable": ".venv/Scripts/flask.exe",
+      "runtimeArgs": ["--app", "wsgi", "run", "--port", "5050"],
+      "port": 5050
+    }
+  ]
+}

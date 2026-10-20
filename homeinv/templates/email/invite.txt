@@ -1,0 +1,8 @@
+Hi,
+
+{{ inviter.display_name }} invited you to join "{{ family.name }}" on Home Inventory, where you can share your household's inventory and shopping lists.
+
+Accept the invitation:
+{{ link }}
+
+The link works once and expires in {{ days }} days. If you weren't expecting this, you can ignore it.

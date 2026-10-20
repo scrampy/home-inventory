@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% from '_forms.html' import field, post_button %}
+{% block title %}{{ family.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ family.name }}</h1>
+    <div class="text-body-secondary small">You're {{ 'an admin' if me.is_admin else 'a member' }}</div>
+  </div>
+  {% if me.is_admin %}
+  <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#rename">Rename</button>
+  {% endif %}
+</div>
+
+{% if me.is_admin %}
+<div class="collapse mb-3" id="rename">
+  <form method="post" action="{{ url_for('family.rename') }}" class="d-flex gap-2">
+    {{ rename_form.csrf_token }}
+    {{ rename_form.name(class_='form-control', aria_label='Family name') }}
+    <button class="btn btn-primary" type="submit">Save</button>
+  </form>
+</div>
+{% endif %}
+
+{% if invite_link %}
+<div class="alert alert-light border" role="status">
+  <div class="small mb-1">Invite link for <strong>{{ invite_link.email }}</strong>. You can also send it by text. It works once.</div>
+  <div class="input-group">
+    <input class="form-control form-control-sm" id="invite-link" value="{{ invite_link.link }}" readonly>
+    <button class="btn btn-outline-secondary btn-sm" type="button"
+            onclick="navigator.clipboard.writeText(document.getElementById('invite-link').value); this.textContent='Copied'">Copy</button>
+  </div>
+</div>
+{% endif %}
+
+<section class="mb-4">
+  <h2 class="h5">Members</h2>
+  <ul class="list-group">
+    {% for m in members %}
+    <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center member-row" data-testid="member">
+      <div class="me-auto">
+        <div class="fw-medium">{{ m.user.display_name }}{% if m.user_id == current_user.id %} <span class="text-body-secondary">(you)</span>{% endif %}</div>
+        {% if m.user.name %}<div class="small text-body-secondary">{{ m.user.email }}</div>{% endif %}
+      </div>
+      <span class="badge {{ 'text-bg-primary' if m.is_admin else 'text-bg-secondary' }}">{{ m.role|title }}</span>
+      {% if me.is_admin and m.user_id != current_user.id %}
+      <div class="d-flex member-actions w-100 justify-content-end">
+        <form method="post" action="{{ url_for('family.change_role', membership_id=m.id) }}" class="m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="role" value="{{ 'member' if m.is_admin else 'admin' }}">
+          <button class="btn btn-outline-primary btn-sm" type="submit">{{ 'Make member' if m.is_admin else 'Make admin' }}</button>
+        </form>
+        {{ post_button(url_for('family.remove_member', membership_id=m.id), 'Remove', 'btn btn-outline-danger btn-sm',
+                       confirm='Remove ' ~ m.user.display_name ~ ' from ' ~ family.name ~ '?') }}
+      </div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% if me.is_admin %}
+<section class="mb-4">
+  <h2 class="h5">Invite someone</h2>
+  <form method="post" action="{{ url_for('family.invite') }}" class="d-flex gap-2" novalidate>
+    {{ invite_form.csrf_token }}
+    {{ invite_form.email(class_='form-control', placeholder='name@example.com', aria_label='Email to invite', autocomplete='off') }}
+    <button class="btn btn-primary text-nowrap" type="submit">Send invite</button>
+  </form>
+  {% if pending %}
+  <h3 class="h6 mt-3">Waiting to accept</h3>
+  <ul class="list-group">
+    {% for inv in pending %}
+    <li class="list-group-item d-flex justify-content-between align-items-center" data-testid="pending-invite">
+      <div>
+        <div>{{ inv.email }}</div>
+        <div class="small text-body-secondary">Expires {{ inv.expires_at.strftime('%b %d') }}</div>
+      </div>
+      {{ post_button(url_for('family.revoke_invitation', invitation_id=inv.id), 'Cancel') }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="border-top pt-3">
+  {% if other_families %}
+  <h2 class="h6">Your other families</h2>
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    {% for m in other_families %}
+      {{ post_button(url_for('family.switch', family_id=m.family_id), 'Switch to ' ~ m.family.name) }}
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('family.new') }}">Start another family</a>
+    {{ post_button(url_for('family.leave'), 'Leave family', 'btn btn-outline-danger btn-sm',
+                   confirm='Leave ' ~ family.name ~ '?') }}
+  </div>
+</section>
+{% endblock %}

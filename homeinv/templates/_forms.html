@@ -1,0 +1,25 @@
+{% macro field(f, help=None) %}
+  {% set invalid = 'is-invalid' if f.errors else '' %}
+  {% if f.type == 'BooleanField' %}
+    <div class="form-check mb-3">
+      {{ f(class_='form-check-input ' ~ invalid, **kwargs) }}
+      {{ f.label(class_='form-check-label') }}
+    </div>
+  {% else %}
+    <div class="mb-3">
+      {{ f.label(class_='form-label') }}
+      {{ f(class_='form-control ' ~ invalid, **kwargs) }}
+      {% if help %}<div class="form-text">{{ help }}</div>{% endif %}
+      {% for error in f.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+    </div>
+  {% endif %}
+{% endmacro %}
+
+{# A POST button with its CSRF token, for actions like "remove" or "leave". #}
+{% macro post_button(action, label, cls='btn btn-outline-secondary btn-sm', confirm=None) %}
+  <form method="post" action="{{ action }}" class="d-inline m-0"
+        {% if confirm %}onsubmit="return confirm({{ confirm|tojson|forceescape }})"{% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="{{ cls }}">{{ label }}</button>
+  </form>
+{% endmacro %}

@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Invitation{% endblock %}
+{% block content %}
+<div class="card shadow-sm mx-auto" style="max-width: 26rem">
+  <div class="card-body p-4">
+  {% if state == 'invalid' %}
+    <h1 class="h4">This invitation can't be used</h1>
+    <p>It may have expired, been cancelled, or already been accepted. Ask the person who invited you to send a new one.</p>
+    <a class="btn btn-outline-primary w-100" href="{{ url_for('main.index') }}">Go home</a>
+  {% else %}
+    <h1 class="h4 mb-1">Join {{ invitation.family.name }}</h1>
+    <p class="text-body-secondary small">
+      {% if invitation.invited_by %}{{ invitation.invited_by.display_name }} invited {% else %}Invitation for {% endif %}<strong>{{ invitation.email }}</strong>.
+    </p>
+    {% if state == 'signup' %}
+      <a class="btn btn-primary w-100" href="{{ url_for('auth.signup', invite=token) }}">Create an account to join</a>
+    {% elif state == 'login' %}
+      <p>You already have an account. Log in to accept.</p>
+      <a class="btn btn-primary w-100" href="{{ url_for('auth.login', next=request.path) }}">Log in to join</a>
+    {% elif state == 'wrong_account' %}
+      <p>You're logged in as <strong>{{ current_user.email }}</strong>, but this invitation is for <strong>{{ invitation.email }}</strong>. Log out, then open the link again.</p>
+    {% elif state == 'already_member' %}
+      <p>You're already a member of this family.</p>
+      <a class="btn btn-primary w-100" href="{{ url_for('family.dashboard') }}">Go to family</a>
+    {% else %}
+      <form method="post" action="{{ url_for('family.accept_invite', token=token) }}">
+        {{ form.csrf_token }}
+        <button class="btn btn-primary w-100" type="submit">Join {{ invitation.family.name }}</button>
+      </form>
+    {% endif %}
+  {% endif %}
+  </div>
+</div>
+{% endblock %}

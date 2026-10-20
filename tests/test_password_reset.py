@@ -1,109 +1,99 @@
-import os
-import sys
-import unittest
-from unittest.mock import patch, MagicMock
+from datetime import datetime, timedelta, timezone
+from unittest import mock
 
-# Add the parent directory to sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from conftest import PASSWORD, link_path, login, logout, signup, user
 
-from app import app, generate_password_reset_token, verify_password_reset_token, User, db
-from werkzeug.security import generate_password_hash
+NEW_PASSWORD = "brand-new-pass-2"
 
-class PasswordResetTestCase(unittest.TestCase):
-    def setUp(self):
-        app.config['TESTING'] = True
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-        self.app = app.test_client()
-        with app.app_context():
-            db.create_all()
-            # Create a test user
-            test_user = User(email='test@example.com', password_hash=generate_password_hash('password123'))
-            db.session.add(test_user)
-            db.session.commit()
-    
-    def tearDown(self):
-        with app.app_context():
-            db.session.remove()
-            db.drop_all()
-    
-    def test_token_generation_and_verification(self):
-        """Test that password reset tokens can be generated and verified"""
-        with app.app_context():
-            email = 'test@example.com'
-            token = generate_password_reset_token(email)
-            
-            # Token should be a non-empty string
-            self.assertTrue(token)
-            self.assertIsInstance(token, str)
-            
-            # Verify the token
-            verified_email = verify_password_reset_token(token)
-            self.assertEqual(verified_email, email)
-            
-            # Test invalid token
-            self.assertIsNone(verify_password_reset_token('invalid-token'))
-            
-            # We can't easily test token expiration in a unit test without mocking time
-            # or waiting, so we'll skip that test for now
-    
-    @patch('app.send_password_reset_email')
-    def test_reset_password_request_route(self, mock_send_email):
-        """Test the reset password request route"""
-        mock_send_email.return_value = True
-        
-        # First, let's check that the form page loads correctly
-        response = self.app.get('/reset-password-request')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Reset Password', response.data)
-        
-        # Test with existing email
-        mock_send_email.reset_mock()
-        response = self.app.post('/reset-password-request', data={
-            'email': 'test@example.com'
-        }, follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        
-        # Verify email would have been sent
-        self.assertTrue(mock_send_email.called)
-        
-        # Test with non-existent email (should still show success to prevent email enumeration)
-        mock_send_email.reset_mock()
-        response = self.app.post('/reset-password-request', data={
-            'email': 'nonexistent@example.com'
-        }, follow_redirects=True)
-        self.assertEqual(response.status_code, 200)
-        
-        # Email should not be sent for non-existent user
-        self.assertFalse(mock_send_email.called)
-    
-    def test_reset_password_route(self):
-        """Test the reset password route with a valid token"""
-        with app.app_context():
-            # Generate a valid token
-            email = 'test@example.com'
-            token = generate_password_reset_token(email)
-            
-            # Test GET request
-            response = self.app.get(f'/reset-password/{token}')
-            self.assertEqual(response.status_code, 200)
-            self.assertIn(b'Set New Password', response.data)
-            
-            # Test POST request with valid password
-            response = self.app.post(f'/reset-password/{token}', data={
-                'password': 'newpassword123',
-                'password_confirm': 'newpassword123'
-            }, follow_redirects=True)
-            self.assertEqual(response.status_code, 200)
-            
-            # Verify password was changed
-            user = User.query.filter_by(email=email).first()
-            from werkzeug.security import check_password_hash
-            self.assertTrue(check_password_hash(user.password_hash, 'newpassword123'))
-            
-            # Test with invalid token
-            response = self.app.get('/reset-password/invalid-token', follow_redirects=True)
-            self.assertEqual(response.status_code, 200)
-            self.assertIn(b'Login', response.data)  # Should redirect to login page
 
-if __name__ == '__main__':
-    unittest.main()
+def request_reset(client, email):
+    return client.post("/reset-password", data={"email": email}, follow_redirects=True)
+
+
+def test_reset_flow_changes_password(client, outbox):
+    signup(client, "ann@example.com")
+    logout(client)
+
+    resp = request_reset(client, "ann@example.com")
+    assert b"Check your email" in resp.data
+    [message] = outbox
+    assert message.to == "ann@example.com"
+    path = link_path(message)
+    # The token must never appear on the page, only in the email.
+    assert path.split("/")[-1].encode() not in resp.data
+
+    resp = client.post(path, data={"password": NEW_PASSWORD, "confirm": NEW_PASSWORD}, follow_redirects=True)
+    assert b"Your password has been changed" in resp.data
+    assert b"incorrect" in login(client, "ann@example.com", PASSWORD).data
+    assert b"Members" in login(client, "ann@example.com", NEW_PASSWORD).data
+
+
+def test_unknown_email_gets_same_page_and_no_email(client, outbox):
+    resp = request_reset(client, "nobody@example.com")
+    assert b"Check your email" in resp.data
+    assert outbox == []
+
+
+def test_reset_link_works_only_once(client, outbox):
+    signup(client, "ann@example.com")
+    logout(client)
+    request_reset(client, "ann@example.com")
+    path = link_path(outbox[0])
+    client.post(path, data={"password": NEW_PASSWORD, "confirm": NEW_PASSWORD})
+
+    resp = client.get(path, follow_redirects=True)
+    assert b"invalid, expired or already used" in resp.data
+
+
+def test_reset_link_expires(client, outbox, app):
+    signup(client, "ann@example.com")
+    logout(client)
+    request_reset(client, "ann@example.com")
+    path = link_path(outbox[0])
+
+    later = datetime.now(timezone.utc) + timedelta(seconds=app.config["PASSWORD_RESET_MAX_AGE"] + 5)
+    with mock.patch("itsdangerous.timed.time.time", return_value=later.timestamp()):
+        resp = client.get(path, follow_redirects=True)
+    assert b"invalid, expired or already used" in resp.data
+
+
+def test_tampered_token_rejected(client):
+    resp = client.get("/reset-password/not-a-real-token", follow_redirects=True)
+    assert b"invalid, expired or already used" in resp.data
+
+
+def test_reset_signs_out_other_sessions(client, new_client, outbox):
+    signup(client, "ann@example.com")  # stays logged in on this "device"
+    other = new_client()
+    request_reset(other, "ann@example.com")
+    other.post(link_path(outbox[0]), data={"password": NEW_PASSWORD, "confirm": NEW_PASSWORD})
+
+    resp = client.get("/family")
+    assert resp.status_code == 302 and "/login" in resp.headers["Location"]
+
+
+def test_reset_link_uses_configured_base_url_not_host_header(client, outbox):
+    signup(client, "ann@example.com")
+    logout(client)
+    client.post("/reset-password", data={"email": "ann@example.com"},
+                headers={"Host": "attacker.example"})
+    assert "attacker.example" not in outbox[0].text
+    assert "http://testserver.local/reset-password/" in outbox[0].text
+
+
+def test_no_debug_mode_on_reset_page(client, outbox):
+    signup(client, "ann@example.com")
+    logout(client)
+    resp = client.post("/reset-password?debug=1", data={"email": "ann@example.com"})
+    token = link_path(outbox[0]).split("/")[-1]
+    assert token.encode() not in resp.data
+    assert b"Debug" not in resp.data
+
+
+def test_mail_failure_still_shows_same_page(client, app):
+    signup(client, "ann@example.com")
+    logout(client)
+    with mock.patch.object(app.extensions["email_backend"], "send", side_effect=RuntimeError("down")):
+        resp = request_reset(client, "ann@example.com")
+    assert resp.status_code == 200 and b"Check your email" in resp.data
+    assert user("ann@example.com") is not None

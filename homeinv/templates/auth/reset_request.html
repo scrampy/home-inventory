@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% from '_forms.html' import field %}
+{% block title %}Reset password{% endblock %}
+{% block content %}
+<div class="card shadow-sm mx-auto" style="max-width: 26rem">
+  <div class="card-body p-4">
+    <h1 class="h4 mb-1">Reset your password</h1>
+    <p class="text-body-secondary small mb-3">We'll email you a link to choose a new one.</p>
+    <form method="post" novalidate>
+      {{ form.csrf_token }}
+      {{ field(form.email, autocomplete='email', autofocus=true) }}
+      <button class="btn btn-primary w-100" type="submit">Send reset link</button>
+    </form>
+    <p class="mt-3 small text-center"><a href="{{ url_for('auth.login') }}">Back to log in</a></p>
+  </div>
+</div>
+{% endblock %}
