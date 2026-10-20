@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% from '_forms.html' import post_button %}
+{% block title %}{{ item.name }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-column gap-3">
+  <div class="d-flex justify-content-between align-items-center">
+    <a class="small fw-semibold text-decoration-none" href="{{ request.referrer if request.referrer and '/items/' not in request.referrer else url_for('find.index') }}">‹ Back</a>
+    <a class="btn btn-sm btn-pill btn-outline-secondary" href="{{ url_for('catalog.item_edit', item_id=item.id) }}">Edit</a>
+  </div>
+
+  <div>
+    <h1 class="page-title" style="font-size: 1.875rem">{{ item.name }}</h1>
+    <div class="d-flex align-items-center gap-2 mt-1">
+      {% if stock %}
+      <span class="fw-bold" style="font-size: 2.5rem; line-height: 1">{{ total|qty }}</span>
+      <span class="text-body-secondary">{{ item.default_unit or '' }} in stock</span>
+      {% if is_out %}<span class="badge-warn">Out</span>{% elif is_low %}<span class="badge-warn">Low</span>{% endif %}
+      {% else %}
+      <span class="text-body-secondary">Not counted in any place yet.</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <section id="item-list-card" class="card-hi p-3 d-flex flex-column gap-2">
+    {% if entry %}
+      <div class="d-flex align-items-center gap-2">
+        <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1E6B52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+        <span class="flex-grow-1 fw-semibold">On the list · get</span>
+        <form method="post" action="{{ url_for('shopping.quantity', entry_id=entry.id) }}" data-refresh="#item-list-card" class="m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="delta" value="-1">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <button class="qty-btn" type="submit" aria-label="Get one fewer" {% if entry.quantity <= 1 %}disabled{% endif %}>&minus;</button>
+        </form>
+        <span class="fw-bold text-center" style="width: 2rem; font-size: 1.125rem" data-testid="to-buy">{{ entry.quantity|qty }}</span>
+        <form method="post" action="{{ url_for('shopping.quantity', entry_id=entry.id) }}" data-refresh="#item-list-card" class="m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="delta" value="1">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <button class="qty-btn" type="submit" aria-label="Get one more">+</button>
+        </form>
+      </div>
+      <form method="post" action="{{ url_for('shopping.toggle_item', item_id=item.id) }}" data-refresh="#item-list-card" class="m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ request.full_path }}">
+        <button class="btn btn-outline-secondary w-100" type="submit">Take off the list</button>
+      </form>
+    {% elif in_cart %}
+      <div class="fw-semibold">In the cart on the shopping list.</div>
+      <a class="btn btn-outline-primary" href="{{ url_for('shopping.index') }}">Open the list</a>
+    {% else %}
+      <form method="post" action="{{ url_for('shopping.toggle_item', item_id=item.id) }}" data-refresh="#item-list-card" class="m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ request.full_path }}">
+        <button class="btn btn-primary w-100" style="min-height: 3.25rem; font-size: 1.0625rem" type="submit">+ Add to shopping list</button>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="d-flex flex-column gap-2">
+    <h2 class="h6 fw-bold m-0" style="font-size: 1.0625rem">Where it's kept</h2>
+    {% if stock %}
+    <ul class="list-hi">
+      {% for s in stock %}{% with stock=s, view='item' %}{% include 'inventory/_row.html' %}{% endwith %}{% endfor %}
+    </ul>
+    {% endif %}
+    {% if other_places %}
+    <form method="post" action="{{ url_for('inventory.add') }}" class="d-flex gap-2 m-0">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="name" value="{{ item.name }}">
+      <input type="hidden" name="next" value="{{ url_for('catalog.item', item_id=item.id) }}">
+      <select class="form-select" name="location_id" aria-label="Place to keep it">
+        {% for id, label in other_places %}<option value="{{ id }}">{{ label }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-outline-primary text-nowrap" type="submit">{{ 'Keep some here' if stock else 'Keep it here' }}</button>
+    </form>
+    {% elif not stock %}
+    <a class="btn btn-outline-primary" href="{{ url_for('places.index') }}#add-place">Add a place first</a>
+    {% endif %}
+  </section>
+
+  <section id="buy-at" class="d-flex flex-column gap-2">
+    <h2 class="h6 fw-bold m-0" style="font-size: 1.0625rem">Buy it at</h2>
+    {% if stores %}
+    <div class="store-choices">
+      {% for store in stores %}
+      {% set sold = store in item.stores %}
+      <form method="post" action="{{ url_for('catalog.toggle_store', item_id=item.id, store_id=store.id) }}" class="m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-sm btn-pill {{ 'btn-on' if sold else 'btn-outline-secondary' }}" type="submit" aria-pressed="{{ 'true' if sold else 'false' }}">
+          {{ '✓ ' if sold }}{{ store.name }}</button>
+      </form>
+      {% endfor %}
+    </div>
+    <div class="small text-body-secondary">{{ 'Shows up on the list when you shop at these.' if item.stores else 'Any store: shows up on the list wherever you shop.' }}</div>
+    {% else %}
+    <a class="small" href="{{ url_for('catalog.named_list', kind='stores') }}">Add your stores</a>
+    {% endif %}
+  </section>
+
+  <section class="card-hi px-3 py-1">
+    <a class="d-flex justify-content-between align-items-center text-decoration-none text-reset" style="min-height: 3rem" href="{{ url_for('catalog.item_edit', item_id=item.id) }}">
+      <span class="text-body-secondary">Aisle</span><span class="fw-semibold">{{ item.aisle.name if item.aisle else 'None' }}</span>
+    </a>
+    <a class="d-flex justify-content-between align-items-center text-decoration-none text-reset border-top" style="min-height: 3rem; border-color: var(--hi-line-soft) !important" href="{{ url_for('catalog.item_edit', item_id=item.id) }}">
+      <span class="text-body-secondary">Warn me when it's down to</span><span class="fw-semibold">{{ item.low_stock_threshold|qty if item.low_stock_threshold is not none else 'Off' }}</span>
+    </a>
+    {% if item.notes %}
+    <div class="border-top py-2 small" style="border-color: var(--hi-line-soft) !important; white-space: pre-line">{{ item.notes }}</div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

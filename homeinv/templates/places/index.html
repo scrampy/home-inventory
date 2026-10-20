@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}Places{% endblock %}
+
+{% macro folder_icon(open) %}
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1E6B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+{% endmacro %}
+{% macro box_icon() %}
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B635F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4M12 11v10"/></svg>
+{% endmacro %}
+
+{% macro node_row(node, has_children) %}
+  <a class="tree-link" href="{{ url_for('places.show', place_id=node.place.id) }}" data-testid="place">
+    {{ folder_icon() if has_children else box_icon() }}
+    <span class="tree-name{{ ' has-children' if has_children }}">{{ node.place.name }}</span>
+    {% if node.out %}<span class="badge-warn">{{ node.out }} out</span>{% endif %}
+    <span class="tree-count" aria-label="{{ node.items }} items">{{ node.items }}</span>
+  </a>
+{% endmacro %}
+
+{% macro render(nodes, depth) %}
+  {% for node in nodes %}
+    {% set pad = 'padding-left: ' ~ (depth * 1.25) ~ 'rem' %}
+    {% if node.children %}
+    <details {% if depth == 0 or node.place.id in open_ids %}open{% endif %}>
+      <summary>
+        <div class="tree-row" style="{{ pad }}">
+          <span class="tree-toggle" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          </span>
+          {{ node_row(node, true) }}
+        </div>
+      </summary>
+      {{ render(node.children, depth + 1) }}
+    </details>
+    {% else %}
+    <div class="tree-row" style="{{ pad }}">
+      <span class="tree-spacer"></span>
+      {{ node_row(node, false) }}
+    </div>
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex flex-column gap-3">
+  <div class="d-flex justify-content-between align-items-center">
+    <h1 class="page-title">Places</h1>
+    <a class="btn btn-sm btn-pill btn-outline-primary" href="#add-place">+ Add place</a>
+  </div>
+  <p class="m-0 small text-body-secondary">Places can sit inside places. Counts include everything inside. Tap the arrow to open or close.</p>
+
+  {% if roots %}
+  <div class="tree" role="tree" aria-label="Places">{{ render(roots, 0) }}</div>
+  {% else %}
+  <div class="card-hi p-3">No places yet. Start with where you keep things, like Home, then rooms and freezers inside it.</div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('places.add') }}" id="add-place" class="card-hi p-3 d-flex flex-column gap-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="from" value="tree">
+    <h2 class="h6 fw-bold m-0">Add a place</h2>
+    <input class="form-control" name="name" maxlength="80" required placeholder="e.g. Garage freezer" aria-label="Name of the new place">
+    <label class="small text-body-secondary" for="new-parent">Inside</label>
+    <select class="form-select" name="parent_id" id="new-parent">
+      <option value="">Nothing (a top-level place)</option>
+      {% for id, label in choices %}<option value="{{ id }}">{{ label }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-primary" type="submit">Add place</button>
+  </form>
+</div>
+{% endblock %}

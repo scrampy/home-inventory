@@ -6,7 +6,7 @@
   {% if state == 'invalid' %}
     <h1 class="h4">This invitation can't be used</h1>
     <p>It may have expired, been cancelled, or already been accepted. Ask the person who invited you to send a new one.</p>
-    <a class="btn btn-outline-primary w-100" href="{{ url_for('main.index') }}">Go home</a>
+    <a class="btn btn-outline-primary w-100" href="{{ url_for('find.index') }}">Go home</a>
   {% else %}
     <h1 class="h4 mb-1">Join {{ invitation.family.name }}</h1>
     <p class="text-body-secondary small">

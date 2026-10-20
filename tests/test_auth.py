@@ -38,7 +38,7 @@ def test_login_and_logout(client):
     assert client.get("/family").status_code == 302
 
     resp = login(client, "ann@example.com")
-    assert resp.status_code == 200 and resp.request.path == "/inventory"
+    assert resp.status_code == 200 and resp.request.path == "/"
     logout(client)
     assert client.get("/family").status_code == 302
 

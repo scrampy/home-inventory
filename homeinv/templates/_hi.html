@@ -1,0 +1,22 @@
+{# Shared pieces for the everyday screens. #}
+
+{# "+ List" / "On the list ✓": adds an item to the shopping list or takes it off.
+   `refresh` is the part of the page to update in place afterwards (see static/app.js). #}
+{% macro list_toggle(item, on_list, refresh, wide=False, next=None) %}
+<form method="post" action="{{ url_for('shopping.toggle_item', item_id=item.id) }}" data-refresh="{{ refresh }}" class="m-0">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="next" value="{{ next or request.full_path }}">
+  {% if wide %}
+  <button class="btn w-100 {{ 'btn-on' if on_list else 'btn-outline-primary' }}" type="submit">
+    {{ 'On the shopping list ✓' if on_list else '+ Add to shopping list' }}</button>
+  {% else %}
+  <button class="btn btn-sm btn-pill text-nowrap {{ 'btn-on' if on_list else 'btn-outline-primary' }}" type="submit"
+          aria-label="{{ ('Take ' ~ item.name ~ ' off the shopping list') if on_list else ('Add ' ~ item.name ~ ' to the shopping list') }}">
+    {{ 'On list ✓' if on_list else '+ List' }}</button>
+  {% endif %}
+</form>
+{% endmacro %}
+
+{% macro search_icon(color='currentColor') %}
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{ color }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+{% endmacro %}

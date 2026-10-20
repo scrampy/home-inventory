@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from helpers import invite, signup, user
 from homeinv.extensions import db
-from homeinv.models import Aisle, Family, Invitation, Item, Location, Membership, Stock, Store
+from homeinv.models import Aisle, Family, Invitation, Item, ListEntry, Location, Membership, Stock, Store
 
 
 @pytest.fixture
@@ -19,13 +19,20 @@ def two_families(client, new_client):
     signup(client, "ann@example.com", family_name="Ann's")
     eve = new_client()
     signup(eve, "eve@example.com", family_name="Eve's")
-    eve.post("/locations", data={"name": "Eve pantry"})
+    eve.post("/places/add", data={"name": "Eve home"})
+    eve_home = db.session.scalar(select(Location.id).filter_by(name="Eve home"))
+    eve.post("/places/add", data={"name": "Eve pantry", "parent_id": str(eve_home)})
     eve.post("/stores", data={"name": "Eve store"})
     eve.post("/aisles", data={"name": "Eve aisle"})
+    eve.post("/aisles", data={"name": "Eve aisle 2"})
     eve.post("/items", data={"name": "Eve item"})
     eve_loc = db.session.scalar(select(Location.id).filter_by(name="Eve pantry"))
     eve.post("/inventory/add", data={"location_id": eve_loc, "name": "Eve item"})
+    eve.post("/list/add", data={"name": "Eve item"})
     invite(eve, "friend@example.com")
+    # Ann's own rows, to mix with Eve's IDs.
+    client.post("/stores", data={"name": "Ann store"})
+    client.post("/items", data={"name": "Ann item"})
     family = db.session.get(Family, user("eve@example.com").memberships[0].family_id)
     return {
         "family": family.id,
@@ -36,6 +43,9 @@ def two_families(client, new_client):
         "aisle": db.session.scalar(select(Aisle.id).filter_by(name="Eve aisle")),
         "item": db.session.scalar(select(Item.id).filter_by(name="Eve item")),
         "stock": db.session.scalar(select(Stock.id)),
+        "entry": db.session.scalar(select(ListEntry.id)),
+        "ann_store": db.session.scalar(select(Store.id).filter_by(name="Ann store")),
+        "ann_item": db.session.scalar(select(Item.id).filter_by(name="Ann item")),
     }
 
 
@@ -46,20 +56,32 @@ CASES = {
     "family.revoke_invitation": [("POST", "/family/invitations/{invitation}/revoke", {})],
     "family.switch": [("POST", "/family/switch/{family}", {})],
     "catalog.rename": [
-        ("POST", "/locations/{location}/rename", {"name": "Hacked"}),
         ("POST", "/stores/{store}/rename", {"name": "Hacked"}),
         ("POST", "/aisles/{aisle}/rename", {"name": "Hacked"}),
     ],
     "catalog.delete": [
-        ("POST", "/locations/{location}/delete", {}),
         ("POST", "/stores/{store}/delete", {}),
         ("POST", "/aisles/{aisle}/delete", {}),
     ],
+    "catalog.move": [("POST", "/aisles/{aisle}/move", {"direction": "down"})],
+    "catalog.item": [("GET", "/items/{item}", {})],
     "catalog.item_edit": [
-        ("GET", "/items/{item}", {}),
-        ("POST", "/items/{item}", {"name": "Hacked", "aisle_id": "0"}),
+        ("GET", "/items/{item}/edit", {}),
+        ("POST", "/items/{item}/edit", {"name": "Hacked", "aisle_id": "0"}),
     ],
     "catalog.item_delete": [("POST", "/items/{item}/delete", {})],
+    "catalog.toggle_store": [
+        ("POST", "/items/{item}/stores/{ann_store}", {}),   # Eve's item, Ann's store
+        ("POST", "/items/{ann_item}/stores/{store}", {}),   # Ann's item, Eve's store
+    ],
+    "places.show": [("GET", "/places/{location}", {})],
+    "places.rename": [("POST", "/places/{location}/rename", {"name": "Hacked"})],
+    "places.move": [("POST", "/places/{location}/move", {"parent_id": ""})],
+    "places.delete": [("POST", "/places/{location}/delete", {})],
+    "shopping.toggle_item": [("POST", "/list/items/{item}/toggle", {})],
+    "shopping.toggle_cart": [("POST", "/list/{entry}/cart", {})],
+    "shopping.quantity": [("POST", "/list/{entry}/quantity", {"delta": "1"})],
+    "shopping.remove": [("POST", "/list/{entry}/remove", {})],
     "inventory.adjust": [("POST", "/inventory/{stock}/adjust", {"delta": "1"})],
     "inventory.set_quantity": [("POST", "/inventory/{stock}/set", {"quantity": "99"})],
     "inventory.delete": [("POST", "/inventory/{stock}/delete", {})],
@@ -75,6 +97,14 @@ def snapshot():
             select(model).filter_by(family_id=eve_family.id)))
     rows["stock"] = sorted((s.item.name, s.location.name, s.quantity) for s in db.session.scalars(
         select(Stock).filter_by(family_id=eve_family.id)))
+    rows["places"] = sorted((loc.name, loc.parent_id) for loc in db.session.scalars(
+        select(Location).filter_by(family_id=eve_family.id)))
+    rows["aisle_order"] = [a.name for a in db.session.scalars(
+        select(Aisle).filter_by(family_id=eve_family.id).order_by(Aisle.position))]
+    rows["list"] = sorted((e.item.name, e.quantity, e.in_cart) for e in db.session.scalars(
+        select(ListEntry).filter_by(family_id=eve_family.id)))
+    rows["item_stores"] = sorted((i.name, tuple(s.name for s in i.stores)) for i in db.session.scalars(
+        select(Item)))
     rows["family"] = eve_family.name
     rows["members"] = sorted((m.user.email, m.role) for m in eve_family.memberships)
     rows["invites"] = [(i.email, i.revoked_at) for i in eve_family.invitations]
@@ -92,17 +122,27 @@ def test_other_familys_ids_are_not_found(client, two_families, endpoint):
     assert snapshot() == before
 
 
-def test_cannot_add_stock_to_other_familys_location(client, two_families):
+def test_cannot_use_other_familys_place_in_forms(client, two_families):
+    """IDs inside form fields (not the URL) are checked too."""
     before = snapshot()
-    resp = client.post("/inventory/add", data={"location_id": two_families["location"], "name": "Sneaky"})
-    assert resp.status_code == 404
-    assert client.get(f"/inventory?location={two_families['location']}").status_code == 404
+    eve_place = str(two_families["location"])
+    assert client.post("/inventory/add", data={"location_id": eve_place, "name": "Sneaky"}).status_code == 404
+    assert client.post("/places/add", data={"name": "Sneaky", "parent_id": eve_place}).status_code == 404
+    client.post("/places/add", data={"name": "Ann home"})
+    ann_home = db.session.scalar(select(Location.id).filter_by(name="Ann home"))
+    assert client.post(f"/places/{ann_home}/move", data={"parent_id": eve_place}).status_code == 404
+
+    # Put-away into Eve's place.
+    client.post("/list/add", data={"name": "Ann item"})
+    entry = db.session.scalar(select(ListEntry).join(ListEntry.item).where(Item.name == "Ann item"))
+    client.post(f"/list/{entry.id}/cart")
+    assert client.post("/list/done", data={"action": "put_away", f"place_{entry.id}": eve_place}).status_code == 404
     assert snapshot() == before
 
 
 def test_ann_still_sees_only_her_own_rows(client, two_families):
-    eve_names = [b"Eve pantry", b"Eve store", b"Eve aisle", b"Eve item", b"Eve&#39;s", b"eve@example.com"]
-    for path in ("/inventory", "/items", "/locations", "/stores", "/aisles", "/family"):
+    eve_names = [b"Eve home", b"Eve pantry", b"Eve store", b"Eve aisle", b"Eve item", b"Eve&#39;s", b"eve@example.com"]
+    for path in ("/", "/?q=eve", "/places", "/list", "/list/done", "/more", "/items", "/stores", "/aisles", "/family"):
         page = client.get(path).data
         assert not [n for n in eve_names if n in page], path
 

@@ -1,7 +1,7 @@
 import logging
 import os
 
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from flask_wtf.csrf import CSRFError
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -20,6 +20,18 @@ def _sqlite_pragmas(dbapi_connection, connection_record):
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.close()
+
+
+def _active_tab(endpoint):
+    """Which bottom tab a page belongs to."""
+    area = endpoint.split(".")[0]
+    if area in ("find",) or endpoint in ("catalog.item",):
+        return "find"
+    if area in ("places", "inventory"):
+        return "places"
+    if area == "shopping":
+        return "list"
+    return "more"
 
 
 def create_app(overrides=None):
@@ -56,20 +68,28 @@ def create_app(overrides=None):
     from .auth import bp as auth_bp
     from .catalog import bp as catalog_bp
     from .family import bp as family_bp
+    from .find import bp as find_bp
     from .inventory import bp as inventory_bp
     from .main import bp as main_bp
+    from .places import bp as places_bp
+    from .shopping import bp as shopping_bp
 
-    app.register_blueprint(main_bp)
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(family_bp)
-    app.register_blueprint(catalog_bp)
-    app.register_blueprint(inventory_bp)
+    for blueprint in (main_bp, auth_bp, family_bp, find_bp, places_bp, catalog_bp, inventory_bp, shopping_bp):
+        app.register_blueprint(blueprint)
 
     from . import cli
     from .security import current_membership
 
     cli.register(app)
     app.jinja_env.globals["current_membership"] = current_membership
+
+    @app.context_processor
+    def list_badge():
+        # Number of things still to get, for the List tab. Only when someone is in a family.
+        def count():
+            from .shopping import open_count
+            return open_count() if current_membership() else 0
+        return {"list_badge": count, "active_tab": _active_tab(request.endpoint or "")}
 
     @app.after_request
     def security_headers(response):

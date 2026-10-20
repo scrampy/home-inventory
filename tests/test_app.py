@@ -103,3 +103,29 @@ def test_old_coolify_variable_names_still_work(monkeypatch):
     assert app.config["SECRET_KEY"] == "s" * 40
     assert app.config["MAIL_FROM_EMAIL"] == "home@inventory.example"
     assert app.config["MAIL_FROM_NAME"] == "Our House"
+
+
+def test_migrations_keep_existing_rows(tmp_path):
+    """Changing a table on SQLite rebuilds it; that must never cascade-delete rows elsewhere.
+
+    (It did once: rebuilding the location table deleted every stock row.)
+    """
+    from flask_migrate import upgrade as upgrade_to
+
+    app = create_app({"APP_ENV": "testing", "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'm.db'}"})
+    with app.app_context():
+        upgrade_to(revision="43c8a00985f7")  # before nested places
+        with db.engine.begin() as conn:
+            for sql in (
+                "INSERT INTO family (id, name, created_at) VALUES (1, 'F', '2026-01-01')",
+                "INSERT INTO location (id, family_id, name, name_key, created_at) VALUES (1, 1, 'Pantry', 'pantry', '2026-01-01')",
+                "INSERT INTO item (id, family_id, name, name_key, created_at) VALUES (1, 1, 'Rice', 'rice', '2026-01-01')",
+                "INSERT INTO stock (id, family_id, item_id, location_id, quantity, updated_at) VALUES (1, 1, 1, 1, 2.5, '2026-01-01')",
+            ):
+                conn.exec_driver_sql(sql)
+        upgrade_to()
+        with db.engine.connect() as conn:
+            assert conn.exec_driver_sql("SELECT quantity FROM stock").fetchall() == [(2.5,)]
+            assert conn.exec_driver_sql("SELECT name, parent_id FROM location").fetchall() == [("Pantry", None)]
+            assert conn.exec_driver_sql("PRAGMA foreign_keys").fetchone() == (1,)
+        db.engine.dispose()

@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from helpers import signup, user
 from homeinv.extensions import db
-from homeinv.models import Aisle, Item, Location, Store, item_store
+from homeinv.models import Aisle, Item, Store, item_store
 
 
 def add(client, kind, name):
@@ -36,25 +36,25 @@ def listed_items(client, query=""):
 def edit_item(client, item, **fields):
     data = {"name": item.name, "aisle_id": "0", "default_unit": "", "low_stock_threshold": "", "notes": ""}
     data.update(fields)
-    return client.post(f"/items/{item.id}", data=data, follow_redirects=True)
+    return client.post(f"/items/{item.id}/edit", data=data, follow_redirects=True)
 
 
 # --- Locations, stores, aisles ---------------------------------------------
 
-def test_add_rename_delete_location(client):
+def test_add_rename_delete_store(client):
     signup(client, "ann@example.com")
-    resp = add(client, "locations", "  Garage   freezer ")
-    assert b"Added Garage freezer." in resp.data
-    loc = one(Location, "Garage freezer")
-    assert loc.name_key == "garage freezer"
+    resp = add(client, "stores", "  No   Frills ")
+    assert b"Added No Frills." in resp.data
+    store = one(Store, "No Frills")
+    assert store.name_key == "no frills"
 
-    resp = client.post(f"/locations/{loc.id}/rename", data={"name": "Chest freezer"}, follow_redirects=True)
-    assert b"Renamed Garage freezer to Chest freezer." in resp.data
+    resp = client.post(f"/stores/{store.id}/rename", data={"name": "NoFrills"}, follow_redirects=True)
+    assert b"Renamed No Frills to NoFrills." in resp.data
 
-    loc_id = loc.id
-    resp = client.post(f"/locations/{loc_id}/delete", follow_redirects=True)
-    assert b"Deleted Chest freezer." in resp.data
-    assert db.session.get(Location, loc_id) is None
+    store_id = store.id
+    resp = client.post(f"/stores/{store_id}/delete", follow_redirects=True)
+    assert b"Deleted NoFrills." in resp.data
+    assert db.session.get(Store, store_id) is None
 
 
 def test_names_are_unique_per_family_ignoring_case_and_spaces(client):
@@ -88,19 +88,34 @@ def test_rename_to_taken_name_rejected_but_recasing_allowed(client):
 
 def test_blank_names_rejected(client):
     signup(client, "ann@example.com")
-    resp = add(client, "locations", "   ")
+    resp = add(client, "stores", "   ")
     assert b"Enter a name." in resp.data
-    assert names(Location, family_id("ann@example.com")) == []
+    assert names(Store, family_id("ann@example.com")) == []
 
 
-def test_suggestions_add_only_missing_ones(client):
+def test_suggestions_add_only_missing_ones_in_store_order(client):
     signup(client, "ann@example.com")
-    add(client, "locations", "pantry")
-    resp = client.get("/locations")
-    assert b"Common locations: Refrigerator, Freezer" in resp.data
-    client.post("/locations/suggestions")
-    assert names(Location, family_id("ann@example.com")) == ["Freezer", "Refrigerator", "pantry"]
-    assert b"Add these" not in client.get("/locations").data
+    add(client, "aisles", "frozen")
+    resp = client.get("/aisles")
+    assert b"Common aisles: Produce, Bakery" in resp.data and b"Frozen, " not in resp.data
+    client.post("/aisles/suggestions")
+    ordered = [a.name for a in db.session.scalars(select(Aisle).order_by(Aisle.position))]
+    assert ordered[0] == "frozen" and ordered[1:3] == ["Produce", "Bakery"] and len(ordered) == 10
+    assert b"Add these" not in client.get("/aisles").data
+
+
+def test_move_aisles_up_and_down(client):
+    signup(client, "ann@example.com")
+    for name in ("Produce", "Dairy", "Frozen"):
+        add(client, "aisles", name)
+    frozen = one(Aisle, "Frozen")
+    client.post(f"/aisles/{frozen.id}/move", data={"direction": "up"})
+    client.post(f"/aisles/{frozen.id}/move", data={"direction": "up"})
+    client.post(f"/aisles/{frozen.id}/move", data={"direction": "up"})  # already first: no change
+    assert [a.name for a in db.session.scalars(select(Aisle).order_by(Aisle.position))] == ["Frozen", "Produce", "Dairy"]
+    assert client.post(f"/aisles/{frozen.id}/move", data={"direction": "sideways"}).status_code == 400
+    store_id = add(client, "stores", "Costco") and one(Store, "Costco").id
+    assert client.post(f"/stores/{store_id}/move", data={"direction": "up"}).status_code == 404
 
 
 def test_unknown_kind_is_404(client):
@@ -140,7 +155,7 @@ def test_deleting_store_unlinks_items(client):
 def test_add_and_list_items(client):
     signup(client, "ann@example.com")
     assert b"Added Milk." in add_item(client, "Milk").data
-    assert b"already on the list" in add_item(client, "MILK").data
+    assert b"already an item called MILK" in add_item(client, "MILK").data
     add_item(client, "Bread")
     assert listed_items(client) == ["Bread", "Milk"]  # alphabetical
 
@@ -180,7 +195,7 @@ def test_edit_form_shows_current_values(client):
     add_item(client, "Milk")
     milk = one(Item, "Milk")
     edit_item(client, milk, aisle_id=str(one(Aisle, "Dairy").id), store_ids=[str(one(Store, "Costco").id)])
-    page = client.get(f"/items/{milk.id}").data.decode()
+    page = client.get(f"/items/{milk.id}/edit").data.decode()
     assert f'<option selected value="{one(Aisle, "Dairy").id}">Dairy</option>' in page
     assert 'value="%d" autocomplete="off" checked' % one(Store, "Costco").id in page
 
@@ -191,7 +206,7 @@ def test_negative_threshold_and_duplicate_rename_rejected(client):
     add_item(client, "Eggs")
     eggs = one(Item, "Eggs")
     assert b"Use 0 or more." in edit_item(client, eggs, low_stock_threshold="-1").data
-    assert b"already on the list" in edit_item(client, eggs, name="milk").data
+    assert b"already an item called milk" in edit_item(client, eggs, name="milk").data
     assert db.session.get(Item, eggs.id).name == "Eggs"
 
 
@@ -254,6 +269,6 @@ def test_catalog_requires_a_family(client, new_client, outbox):
     bob = new_client()
     signup(bob, "bob@example.com", invite=link_path(outbox[0]).split("/")[-1])
     bob.post("/family/leave")
-    for path in ("/items", "/locations", "/stores", "/aisles"):
+    for path in ("/", "/places", "/list", "/items", "/stores", "/aisles"):
         resp = bob.get(path)
         assert resp.status_code == 302 and "/family/new" in resp.headers["Location"]

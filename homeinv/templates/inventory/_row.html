@@ -1,23 +1,29 @@
-{# One stock row with -, quantity and + controls.
-   view "location": show the item name (inventory page); view "item": show the location (item page). #}
-{% set next_url = request.form.get('next') or request.full_path if request.method == 'POST' else request.full_path %}
-<li class="list-group-item stock-row" data-row id="stock-{{ stock.id }}" data-testid="stock">
-  <div class="d-flex align-items-center gap-2">
-    <div class="me-auto text-truncate">
-      {% if view == 'item' %}
-        <span class="fw-medium">{{ stock.location.name }}</span>
-      {% else %}
-        <a class="fw-medium text-reset text-decoration-none" href="{{ url_for('catalog.item_edit', item_id=stock.item_id) }}">{{ stock.item.name }}</a>
-      {% endif %}
-      {% if stock.quantity == 0 %}<span class="badge text-bg-warning ms-1">Out</span>{% endif %}
-    </div>
+{# One stock row: name, then -, quantity, +.
+   view "location": on a place page, shows the item; at zero it offers to add it to the list.
+   view "item": on an item page, shows the place's path. #}
+{% from '_hi.html' import list_toggle %}
+{% set next_url = request.form.get('next') if request.method == 'POST' and request.form.get('next') else request.full_path %}
+<li class="stock-row" data-row id="stock-{{ stock.id }}" data-testid="stock">
+  <div class="row-hi">
+    {% if view == 'item' %}
+      <a class="row-main text-decoration-none text-reset" href="{{ url_for('places.show', place_id=stock.location_id) }}">
+        <span class="row-title">{{ place_path(stock.location) }}</span>
+        {% if stock.quantity <= 0 %}<span class="row-sub text-warn fw-bold">Out</span>{% endif %}
+      </a>
+    {% else %}
+      <a class="row-main text-decoration-none text-reset" href="{{ url_for('catalog.item', item_id=stock.item_id) }}">
+        <span class="row-title">{{ stock.item.name }}</span>
+        {% if stock.quantity <= 0 %}<span class="row-sub text-warn fw-bold">Out</span>
+        {% elif stock.item.default_unit %}<span class="row-sub">{{ stock.item.default_unit }}</span>{% endif %}
+      </a>
+    {% endif %}
     <div class="qty-controls">
       <form method="post" action="{{ url_for('inventory.adjust', stock_id=stock.id) }}" data-inplace>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="delta" value="-1">
         <input type="hidden" name="view" value="{{ view }}">
         <input type="hidden" name="next" value="{{ next_url }}">
-        <button class="btn btn-outline-secondary qty-btn" type="submit" aria-label="One less {{ stock.item.name }}"
+        <button class="qty-btn" type="submit" aria-label="One less {{ stock.item.name }}"
                 {% if stock.quantity <= 0 %}disabled{% endif %}>&minus;</button>
       </form>
       <form method="post" action="{{ url_for('inventory.set_quantity', stock_id=stock.id) }}" data-inplace>
@@ -33,18 +39,25 @@
         <input type="hidden" name="delta" value="1">
         <input type="hidden" name="view" value="{{ view }}">
         <input type="hidden" name="next" value="{{ next_url }}">
-        <button class="btn btn-outline-secondary qty-btn" type="submit" aria-label="One more {{ stock.item.name }}">+</button>
+        <button class="qty-btn" type="submit" aria-label="One more {{ stock.item.name }}">+</button>
       </form>
     </div>
   </div>
-  {% if error %}<div class="text-danger small mt-1">{{ error }}</div>{% endif %}
+  {% if error %}<div class="text-danger small pb-2">{{ error }}</div>{% endif %}
+  {% if view == 'location' and stock.quantity <= 0 %}
+    {% set entry = stock.item.list_entry %}
+    <div class="d-flex align-items-center gap-2 pb-2">
+      <span class="flex-grow-1 small text-warn">All gone. Get more?</span>
+      {{ list_toggle(stock.item, entry is not none and not entry.in_cart, '#stock-' ~ stock.id, next=next_url) }}
+    </div>
+  {% endif %}
   {% if view == 'item' %}
-  <div class="text-end mt-1">
+  <div class="text-end pb-2">
     <form method="post" action="{{ url_for('inventory.delete', stock_id=stock.id) }}" class="d-inline"
           onsubmit="return confirm({{ ('Stop keeping ' ~ stock.item.name ~ ' in ' ~ stock.location.name ~ '?')|tojson|forceescape }})">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="next" value="{{ url_for('catalog.item_edit', item_id=stock.item_id) }}">
-      <button class="btn btn-link btn-sm text-danger p-0" type="submit">Not kept here</button>
+      <input type="hidden" name="next" value="{{ url_for('catalog.item', item_id=stock.item_id) }}">
+      <button class="btn btn-link btn-sm text-danger p-0" style="min-height: 0" type="submit">Not kept here any more</button>
     </form>
   </div>
   {% endif %}

@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Put away{% endblock %}
+{% block content %}
+<form method="post" class="d-flex flex-column gap-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <a class="small fw-semibold text-decoration-none" href="{{ url_for('shopping.index') }}">‹ Back to the list</a>
+  <div>
+    <h1 class="page-title">Put away what you bought?</h1>
+    <p class="text-body-secondary m-0">We'll add these to the inventory where you choose, and take them off the list.</p>
+  </div>
+
+  <ul class="list-hi">
+    {% for r in rows %}
+    <li class="p-3 d-flex flex-column gap-2" data-testid="put-away">
+      <div class="d-flex justify-content-between align-items-baseline">
+        <label class="row-title" for="place-{{ r.entry.id }}">{{ r.entry.item.name }}</label>
+        <span class="fw-bold">+{{ r.qty }}</span>
+      </div>
+      <select class="form-select" name="place_{{ r.entry.id }}" id="place-{{ r.entry.id }}">
+        <option value="">Don't add to the inventory</option>
+        {% for id, label in choices %}<option value="{{ id }}" {% if id == r.suggested %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <button class="btn btn-primary" style="min-height: 3.25rem" type="submit" name="action" value="put_away">Add to inventory and clear</button>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-secondary flex-fill" type="submit" name="action" value="clear">Just clear them</button>
+    <a class="btn btn-outline-secondary flex-fill" href="{{ url_for('shopping.index') }}">Keep shopping</a>
+  </div>
+</form>
+{% endblock %}

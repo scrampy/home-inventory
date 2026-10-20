@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% from '_forms.html' import post_button %}
+{% block title %}{{ place_path(place, short=False) }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-column gap-3">
+  <nav aria-label="Breadcrumb" class="d-flex flex-wrap align-items-center gap-1 small">
+    <a class="fw-semibold text-decoration-none" href="{{ url_for('places.index') }}">‹ Places</a>
+    {% for p in trail %}
+      <span aria-hidden="true" class="text-body-secondary">{{ '/' if loop.first else '›' }}</span>
+      <a class="text-decoration-none" href="{{ url_for('places.show', place_id=p.id) }}">{{ p.name }}</a>
+    {% endfor %}
+  </nav>
+  <div>
+    <h1 class="page-title">{{ place.name }}</h1>
+    <div class="small text-body-secondary">{{ rows|length }} item{{ 's' if rows|length != 1 }} here{% if out %} · {{ out }} out{% endif %}{% if node.children %} · {{ node.items - rows|length }} more inside{% endif %}</div>
+  </div>
+
+  {% if node.children %}
+  <div class="list-hi" data-testid="children">
+    {% for child in node.children %}
+    <a class="row-hi" href="{{ url_for('places.show', place_id=child.place.id) }}">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1E6B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <span class="row-main"><span class="row-title">{{ child.place.name }}</span></span>
+      {% if child.out %}<span class="badge-warn">{{ child.out }} out</span>{% endif %}
+      <span class="tree-count">{{ child.items }}</span>
+      <span class="chev" aria-hidden="true">›</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('inventory.add') }}" class="d-flex gap-2 m-0" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="location_id" value="{{ place.id }}">
+    <input type="hidden" name="next" value="{{ request.full_path }}">
+    <datalist id="item-names">{% for n in item_names %}<option value="{{ n }}">{% endfor %}</datalist>
+    <input class="form-control" name="name" list="item-names" maxlength="80" required
+           placeholder="Put something in {{ place.name }}" aria-label="Item to add to {{ place.name }}">
+    <button class="btn btn-primary" type="submit">Add</button>
+  </form>
+
+  <div id="place-body">
+  {% if rows %}
+  <ul class="list-hi">
+    {% for stock in rows %}{% with view='location' %}{% include 'inventory/_row.html' %}{% endwith %}{% endfor %}
+  </ul>
+  <p class="small text-body-secondary text-center mt-2 mb-0">Tap an item to see everywhere it's kept.</p>
+  {% elif not node.children %}
+  <div class="card-hi p-3 text-body-secondary">Nothing recorded in {{ place.name }} yet. Add what's there above.</div>
+  {% endif %}
+  </div>
+
+  <details class="card-hi p-3">
+    <summary class="fw-semibold">Edit this place</summary>
+    <div class="d-flex flex-column gap-3 mt-3">
+      <form method="post" action="{{ url_for('places.rename', place_id=place.id) }}" class="d-flex gap-2 m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input class="form-control" name="name" value="{{ place.name }}" maxlength="80" required aria-label="New name">
+        <button class="btn btn-outline-primary" type="submit">Rename</button>
+      </form>
+      <form method="post" action="{{ url_for('places.move', place_id=place.id) }}" class="d-flex gap-2 m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select class="form-select" name="parent_id" aria-label="Move inside">
+          <option value="" {% if not place.parent_id %}selected{% endif %}>Top level</option>
+          {% for id, label in move_choices %}<option value="{{ id }}" {% if id == place.parent_id %}selected{% endif %}>Inside {{ label }}</option>{% endfor %}
+        </select>
+        <button class="btn btn-outline-primary" type="submit">Move</button>
+      </form>
+      <form method="post" action="{{ url_for('places.add') }}" class="d-flex gap-2 m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="parent_id" value="{{ place.id }}">
+        <input class="form-control" name="name" maxlength="80" required placeholder="New place inside {{ place.name }}" aria-label="New place inside {{ place.name }}">
+        <button class="btn btn-outline-primary text-nowrap" type="submit">Add inside</button>
+      </form>
+      <div>
+        {% if node.children %}
+        <div class="small text-body-secondary">To delete {{ place.name }}, first move or delete the places inside it.</div>
+        {% else %}
+        {{ post_button(url_for('places.delete', place_id=place.id), 'Delete ' ~ place.name, 'btn btn-outline-danger btn-sm',
+                       confirm='Delete ' ~ place.name ~ '? Anything recorded there is removed from the inventory.') }}
+        {% endif %}
+      </div>
+    </div>
+  </details>
+</div>
+{% endblock %}

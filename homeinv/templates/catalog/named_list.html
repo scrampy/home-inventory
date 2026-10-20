@@ -2,7 +2,8 @@
 {% from '_forms.html' import post_button %}
 {% block title %}{{ kind.plural }}{% endblock %}
 {% block content %}
-<h1 class="h3 mb-1">{{ kind.plural }}</h1>
+<nav class="small mb-2"><a class="fw-semibold text-decoration-none" href="{{ url_for('main.more') }}">‹ More</a></nav>
+<h1 class="page-title mb-1">{{ kind.plural }}</h1>
 <p class="text-body-secondary small">{{ kind.blurb }}</p>
 
 <form method="post" class="mb-3" novalidate>
@@ -16,13 +17,25 @@
 </form>
 
 {% if rows %}
-<ul class="list-group mb-3">
+<ul class="list-hi mb-3">
   {% for row in rows %}
-  <li class="list-group-item" data-testid="row">
+  <li class="px-3 py-2" id="row-{{ row.id }}" data-testid="row">
     <div class="d-flex align-items-center gap-2">
-      <span class="me-auto fw-medium">{{ row.name }}</span>
+      {% if kind.ordered %}
+      <div class="d-flex flex-column">
+        {% for direction, label, disabled in [('up', '▲', loop.first), ('down', '▼', loop.last)] %}
+        <form method="post" action="{{ url_for('catalog.move', kind=kind.slug, row_id=row.id) }}" class="m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="direction" value="{{ direction }}">
+          <button class="btn btn-link btn-sm p-0 text-body-secondary" style="min-height: 1.5rem; width: 2rem" type="submit"
+                  aria-label="Move {{ row.name }} {{ direction }}" {% if disabled %}disabled{% endif %}>{{ label }}</button>
+        </form>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <span class="me-auto fw-semibold">{{ row.name }}</span>
       {% if row.id in counts %}
-        <span class="badge text-bg-light border">{{ counts[row.id] }} item{{ 's' if counts[row.id] != 1 }}</span>
+        <span class="badge-soft">{{ counts[row.id] }} item{{ 's' if counts[row.id] != 1 }}</span>
       {% endif %}
       <details class="rename">
         <summary class="btn btn-outline-secondary btn-sm">Rename</summary>
@@ -45,7 +58,7 @@
 {% endif %}
 
 {% if suggestions %}
-<div class="border rounded p-3 bg-body-tertiary">
+<div class="card-hi p-3">
   <div class="small mb-2">Common {{ kind.plural|lower }}: {{ suggestions|join(', ') }}</div>
   {{ post_button(url_for('catalog.add_suggestions', kind=kind.slug), 'Add these', 'btn btn-outline-primary btn-sm') }}
 </div>

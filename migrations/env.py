@@ -92,6 +92,17 @@ def run_migrations_online():
     connectable = get_engine()
 
     with connectable.connect() as connection:
+        sqlite = connection.dialect.name == "sqlite"
+        if sqlite:
+            # SQLite changes a table by copying it, dropping the original and
+            # renaming the copy. With foreign keys on, the drop cascades and
+            # deletes rows in other tables (e.g. all stock when the place table
+            # changes). Turn them off while migrating; check them afterwards.
+            connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            # SQLAlchemy opened a transaction for that statement; end it so the
+            # migrations below run in (and commit) their own.
+            connection.commit()
+
         context.configure(
             connection=connection,
             target_metadata=get_metadata(),
@@ -100,6 +111,13 @@ def run_migrations_online():
 
         with context.begin_transaction():
             context.run_migrations()
+
+        if sqlite:
+            problems = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+            if problems:
+                raise RuntimeError(f"Migration left broken foreign keys: {problems[:10]}")
+            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+            connection.commit()
 
 
 if context.is_offline_mode():

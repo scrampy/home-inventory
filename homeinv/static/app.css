@@ -1,35 +1,135 @@
-/* Phone-first: keep content to a readable column on wide screens. */
+/* Home Inventory: phone-first look. Colours and type follow the redesign prototype. */
+:root {
+  --hi-ground: #F5F6F3;
+  --hi-surface: #FFFFFF;
+  --hi-ink: #1B1F1D;
+  --hi-muted: #5B635F;
+  --hi-line: #E3E6E1;
+  --hi-line-soft: #EEF0EC;
+  --hi-accent: #1E6B52;
+  --hi-accent-dark: #154D3B;
+  --hi-accent-soft: #E3F1EB;
+  --hi-warn-bg: #FCEFD9;
+  --hi-warn-ink: #8A4B0A;
+
+  --bs-body-bg: var(--hi-ground);
+  --bs-body-color: var(--hi-ink);
+  --bs-body-font-family: Figtree, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bs-secondary-color: var(--hi-muted);
+  --bs-border-color: var(--hi-line);
+  --bs-link-color-rgb: 30, 107, 82;
+  --bs-link-hover-color-rgb: 21, 77, 59;
+  --bs-primary: var(--hi-accent);
+  --bs-primary-rgb: 30, 107, 82;
+}
+
+body { background: var(--hi-ground); }
+body.has-tabs { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
 .container.narrow { max-width: 720px; }
+h1, .h1 { font-weight: 700; letter-spacing: -0.01em; }
+.page-title { font-size: 1.75rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.eyebrow { font-size: .875rem; color: var(--hi-muted); font-weight: 500; }
 
-/* Comfortable tap targets on phones. */
-.btn { min-height: 2.5rem; }
-.btn-sm { min-height: 2.25rem; }
-/* Links, labels and summaries styled as buttons: center the text like real buttons do. */
+/* Buttons: brand colours, comfortable tap targets. */
+.btn { min-height: 2.75rem; border-radius: .75rem; font-weight: 600; }
+.btn-sm { min-height: 2.25rem; border-radius: 1.125rem; }
 a.btn, label.btn, summary.btn { display: inline-flex; align-items: center; justify-content: center; }
+.btn-primary { --bs-btn-bg: var(--hi-accent); --bs-btn-border-color: var(--hi-accent);
+  --bs-btn-hover-bg: var(--hi-accent-dark); --bs-btn-hover-border-color: var(--hi-accent-dark);
+  --bs-btn-active-bg: var(--hi-accent-dark); --bs-btn-active-border-color: var(--hi-accent-dark);
+  --bs-btn-disabled-bg: var(--hi-accent); --bs-btn-disabled-border-color: var(--hi-accent); }
+.btn-outline-primary { --bs-btn-color: var(--hi-accent); --bs-btn-border-color: var(--hi-accent);
+  --bs-btn-hover-bg: var(--hi-accent-soft); --bs-btn-hover-color: var(--hi-accent-dark); --bs-btn-hover-border-color: var(--hi-accent);
+  --bs-btn-active-bg: var(--hi-accent-soft); --bs-btn-active-color: var(--hi-accent-dark); --bs-btn-active-border-color: var(--hi-accent); }
+.btn-pill { border-radius: 999px; }
+.btn-on { background: var(--hi-accent-soft); color: var(--hi-accent-dark); border: 1px solid var(--hi-accent); }
+.btn-on:hover { background: #d4eade; color: var(--hi-accent-dark); border-color: var(--hi-accent); }
+.form-control, .form-select { min-height: 2.75rem; border-radius: .75rem; border-color: #C9D0C7; }
+.form-control:focus, .form-select:focus { border-color: var(--hi-accent); box-shadow: 0 0 0 .2rem rgba(30,107,82,.15); }
+.text-warn { color: var(--hi-warn-ink) !important; }
 
-/* "Rename" toggles the edit form under its row, no JavaScript needed. */
+/* Cards and lists. */
+.card-hi { background: var(--hi-surface); border-radius: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,.05); border: 0; }
+.list-hi { list-style: none; margin: 0; padding: 0; background: var(--hi-surface); border-radius: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.list-hi > li + li, .list-hi > .row-hi + .row-hi { border-top: 1px solid var(--hi-line-soft); }
+.row-hi { display: flex; align-items: center; gap: .625rem; min-height: 3.5rem; padding: .375rem .875rem; color: inherit; text-decoration: none; }
+a.row-hi:hover { background: #fafbf9; color: inherit; }
+.row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.row-title { font-size: 1.0625rem; font-weight: 600; }
+.row-sub { font-size: .8125rem; color: var(--hi-muted); }
+.section-label { font-size: .8125rem; font-weight: 700; color: var(--hi-muted); text-transform: uppercase; letter-spacing: .06em; margin: 0 0 .375rem 0; }
+.badge-warn { font-size: .75rem; font-weight: 700; padding: .2rem .55rem; border-radius: 999px; background: var(--hi-warn-bg); color: var(--hi-warn-ink); }
+.badge-soft { font-size: .75rem; font-weight: 600; padding: .2rem .55rem; border-radius: 999px; background: var(--hi-line-soft); color: var(--hi-muted); }
+.chev { color: #8A928E; font-size: 1.25rem; line-height: 1; }
+
+/* Big search box on Find. */
+.search-hi { display: flex; align-items: center; gap: .625rem; height: 3.25rem; padding: 0 .875rem; background: var(--hi-surface);
+  border: 1.5px solid var(--hi-accent); border-radius: .875rem; }
+.search-hi input { flex: 1; min-width: 0; border: 0; outline: none; font-size: 1.0625rem; background: transparent; color: var(--hi-ink); }
+.search-hi input::-webkit-search-cancel-button { display: none; }
+
+/* -/+ steppers. */
+.qty-controls { display: flex; align-items: center; gap: .25rem; flex-shrink: 0; }
+.qty-controls form { margin: 0; }
+.qty-btn { width: 2.75rem; height: 2.75rem; min-height: 0; padding: 0; font-size: 1.375rem; line-height: 1; border-radius: 50%;
+  border: 1px solid #C9D0C7; background: var(--hi-surface); color: var(--hi-ink); }
+.qty-btn:disabled { color: #B7BDB9; background: var(--hi-surface); border-color: #DDE1DB; }
+.qty-input { width: 3.75rem; height: 2.75rem; min-height: 0; text-align: center; padding: .25rem; font-weight: 700; font-size: 1.125rem;
+  border: 1px solid transparent; background: transparent; }
+.qty-input:hover, .qty-input:focus { border-color: #C9D0C7; background: var(--hi-surface); }
+.stock-row { padding: .25rem .875rem; }
+.stock-row .row-hi { padding: 0; }
+.is-saving { opacity: .55; transition: opacity .1s; }
+
+/* Places tree: nested <details>. */
+.tree { background: var(--hi-surface); border-radius: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,.05); padding: .25rem 0; }
+.tree details > summary { list-style: none; }
+.tree details > summary::-webkit-details-marker { display: none; }
+.tree-row { display: flex; align-items: center; min-height: 3.25rem; padding-right: .875rem; border-top: 1px solid var(--hi-line-soft); }
+.tree > :first-child > .tree-row, .tree > details:first-child > summary > .tree-row { border-top: 0; }
+.tree-toggle { width: 2.5rem; height: 2.75rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--hi-muted); cursor: pointer; }
+.tree-toggle svg { transition: transform .15s; }
+details[open] > summary .tree-toggle svg { transform: rotate(90deg); }
+.tree-spacer { width: 2.5rem; flex-shrink: 0; }
+.tree-link { flex: 1; min-width: 0; display: flex; align-items: center; gap: .625rem; color: inherit; text-decoration: none; min-height: 3.25rem; }
+.tree-link:hover { color: var(--hi-accent-dark); }
+.tree-name { flex: 1; font-size: 1rem; }
+.tree-name.has-children { font-weight: 700; }
+.tree-count { font-size: .875rem; color: var(--hi-muted); font-weight: 600; min-width: 1.25rem; text-align: right; }
+
+/* Shopping list. */
+.check-row { width: 100%; display: flex; align-items: center; gap: .75rem; min-height: 3.75rem; padding: .5rem .875rem; border: 0;
+  background: transparent; text-align: left; color: var(--hi-ink); }
+.check-dot { width: 1.75rem; height: 1.75rem; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--hi-accent); display: flex; align-items: center; justify-content: center; }
+.in-cart .check-dot { background: var(--hi-accent); }
+.in-cart .row-title { text-decoration: line-through; color: var(--hi-muted); font-weight: 500; }
+.cart-list { background: var(--hi-line-soft); box-shadow: none; }
+.store-tabs { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .125rem; }
+.store-tabs .btn { flex-shrink: 0; }
+.suggest { border: 1px dashed #B88A4D; background: #FFFBF3; color: #6E3C08; }
+.suggest:hover { background: #fff3df; color: #6E3C08; border-color: #B88A4D; }
+.done-bar { position: fixed; left: 0; right: 0; bottom: calc(84px + env(safe-area-inset-bottom)); padding: 0 1rem .5rem; z-index: 1020; }
+.done-bar .btn { width: 100%; max-width: 688px; margin: 0 auto; display: flex; min-height: 3.375rem; border-radius: 1rem;
+  background: var(--hi-ink); color: #fff; box-shadow: 0 6px 16px rgba(0,0,0,.18); }
+.has-done-bar { padding-bottom: 4.5rem; }
+
+/* Bottom tab bar. */
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  height: calc(76px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
+  background: var(--hi-surface); border-top: 1px solid var(--hi-line); }
+.tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: var(--hi-muted); text-decoration: none; font-size: .75rem; font-weight: 600; }
+.tab:hover { color: var(--hi-ink); }
+.tab.active { color: var(--hi-accent); font-weight: 700; }
+.tab-badge { position: absolute; top: 8px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--hi-accent); color: #fff; font-size: .6875rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+/* Set-up pages (stores, aisles, items). */
 details.rename > summary { list-style: none; display: inline-flex; align-items: center; }
 details.rename > summary::-webkit-details-marker { display: none; }
 details.rename[open] > summary { background: var(--bs-secondary-bg); }
 .rename-form { display: none; }
 li:has(details.rename[open]) .rename-form { display: flex; }
-
-/* Inventory rows: big -/+ targets, compact quantity box. */
-.qty-controls { display: flex; align-items: center; gap: .25rem; flex-shrink: 0; }
-.qty-controls form { margin: 0; }
-.qty-btn { width: 2.75rem; height: 2.75rem; padding: 0; font-size: 1.25rem; line-height: 1; }
-.qty-input { width: 4.25rem; height: 2.75rem; text-align: center; padding: .25rem; }
-.stock-row.is-saving { opacity: .6; }
-/* Location filter: one scrollable row of buttons on phones. */
-.loc-pills { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .25rem; }
-.loc-pills .btn { flex-shrink: 0; }
-/* All-locations quick add: item name on its own line on phones. */
-.add-item-name { flex-basis: 100%; }
-@media (min-width: 576px) { .add-item-name { flex-basis: 0; } }
-
-/* Store choices on the item page: large, wrapping tap targets. */
 .store-choices { display: flex; flex-wrap: wrap; gap: .5rem; }
-.store-choices .btn { min-height: 2.25rem; }
-
 .member-row { gap: .5rem; }
 .member-actions { gap: .5rem; }

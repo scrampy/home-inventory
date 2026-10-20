@@ -1,7 +1,8 @@
-"""The family's catalog: locations, stores, aisles and items.
+"""The family's catalog: stores, aisles and items (places are in places.py).
 
-Locations, stores and aisles are simple named lists, so they share one set of
-routes and one template, configured per kind in KINDS.
+Stores and aisles are simple named lists, so they share one set of routes and
+one template, configured per kind in KINDS. Aisles also have an order: the
+shopping list follows it, so it can match the walk through a store.
 """
 
 from dataclasses import dataclass
@@ -13,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from .extensions import db
 from .forms import ActionForm, ItemForm, NameForm
-from .models import Aisle, Item, Location, Stock, Store, clean_name, item_store, name_key
+from .models import Aisle, Item, Store, clean_name, item_store, name_key
 from .security import (current_family_id, family_required, family_rows, family_select,
                        get_for_family_or_404, name_in_use)
 
@@ -29,15 +30,10 @@ class Kind:
     blurb: str
     delete_warning: str
     suggestions: tuple = ()
+    ordered: bool = False  # rows have a position the family can change
 
 
 KINDS = {
-    "locations": Kind(
-        "locations", Location, "location", "Locations",
-        "Places you keep things, like the pantry or the garage freezer.",
-        "Delete {name}? Anything recorded there is removed from the inventory.",
-        ("Pantry", "Refrigerator", "Freezer"),
-    ),
     "stores": Kind(
         "stores", Store, "store", "Stores",
         "Where you shop. Link items to stores to filter the shopping list by store.",
@@ -45,13 +41,25 @@ KINDS = {
     ),
     "aisles": Kind(
         "aisles", Aisle, "aisle", "Aisles",
-        "Sections of a store, used to group the shopping list.",
+        "Sections of a store. Put them in the order you walk through the store: the shopping list follows it.",
         "Delete {name}? Its items will have no aisle.",
-        ("Produce", "Bakery", "Dairy", "Meat & seafood", "Frozen", "Canned goods",
-         "Dry goods", "Snacks", "Drinks", "Household"),
+        ("Produce", "Bakery", "Dairy & eggs", "Meat & seafood", "Pantry", "Canned goods",
+         "Snacks", "Drinks", "Frozen", "Household"),
+        ordered=True,
     ),
 }
-KIND = "<any(locations, stores, aisles):kind>"
+KIND = "<any(stores, aisles):kind>"
+
+
+def rows_for(kind):
+    if kind.ordered:
+        return db.session.scalars(select(kind.model).where(kind.model.family_id == current_family_id())
+                                  .order_by(kind.model.position, kind.model.name_key)).all()
+    return family_rows(kind.model)
+
+
+def ordered_aisles():
+    return rows_for(KINDS["aisles"])
 
 
 def _require_post_form():
@@ -64,6 +72,9 @@ def add_named(model, name, **fields):
     if name_in_use(model, name):
         return None
     row = model(family_id=current_family_id(), **fields)
+    if hasattr(model, "position") and "position" not in fields:
+        last = db.session.scalar(select(func.max(model.position)).where(model.family_id == current_family_id()))
+        row.position = (last or 0) + 1  # new ones go at the end
     row.set_name(name)
     db.session.add(row)
     try:
@@ -80,16 +91,13 @@ def usage_counts(kind):
     if kind.model is Aisle:
         query = (select(Item.aisle_id, func.count()).where(Item.family_id == family_id,
                  Item.aisle_id.is_not(None)).group_by(Item.aisle_id))
-    elif kind.model is Store:
+    else:
         query = (select(item_store.c.store_id, func.count()).join(Store, Store.id == item_store.c.store_id)
                  .where(Store.family_id == family_id).group_by(item_store.c.store_id))
-    else:
-        query = (select(Stock.location_id, func.count()).where(Stock.family_id == family_id)
-                 .group_by(Stock.location_id))
     return dict(db.session.execute(query).all())
 
 
-# --- Locations, stores, aisles ---------------------------------------------
+# --- Stores and aisles ------------------------------------------------------
 
 @bp.route(f"/{KIND}", methods=["GET", "POST"])
 @family_required
@@ -102,7 +110,7 @@ def named_list(kind):
             flash(f"Added {row.name}.", "success")
             return redirect(url_for(".named_list", kind=kind.slug))
         form.name.errors.append(f"There's already a {kind.singular} called {clean_name(form.name.data)}.")
-    rows = family_rows(kind.model)
+    rows = rows_for(kind)
     taken = {r.name_key for r in rows}
     suggestions = [s for s in kind.suggestions if name_key(s) not in taken]
     return render_template("catalog/named_list.html", kind=kind, rows=rows, form=form,
@@ -144,6 +152,29 @@ def rename(kind, row_id):
     return redirect(url_for(".named_list", kind=kind.slug))
 
 
+@bp.route(f"/{KIND}/<int:row_id>/move", methods=["POST"])
+@family_required
+def move(kind, row_id):
+    """Move an aisle up or down the store order."""
+    _require_post_form()
+    kind = KINDS[kind]
+    if not kind.ordered:
+        abort(404)
+    row = get_for_family_or_404(kind.model, row_id)
+    direction = request.form.get("direction")
+    if direction not in ("up", "down"):
+        abort(400)
+    rows = rows_for(kind)
+    index = rows.index(row)
+    other = index - 1 if direction == "up" else index + 1
+    if 0 <= other < len(rows):
+        rows[index], rows[other] = rows[other], rows[index]
+        for position, r in enumerate(rows, start=1):
+            r.position = position
+        db.session.commit()
+    return redirect(url_for(".named_list", kind=kind.slug) + f"#row-{row.id}")
+
+
 @bp.route(f"/{KIND}/<int:row_id>/delete", methods=["POST"])
 @family_required
 def delete(kind, row_id):
@@ -167,7 +198,7 @@ def items():
         if item:
             flash(f"Added {item.name}.", "success")
             return redirect(url_for(".items"))
-        form.name.errors.append(f"{clean_name(form.name.data)} is already on the list.")
+        form.name.errors.append(f"There's already an item called {clean_name(form.name.data)}.")
 
     search = (request.args.get("q") or "").strip()
     query = family_select(Item).options(selectinload(Item.stores), selectinload(Item.aisle))
@@ -177,11 +208,47 @@ def items():
     return render_template("catalog/items.html", form=form, items=rows, search=search)
 
 
-@bp.route("/items/<int:item_id>", methods=["GET", "POST"])
+@bp.route("/items/<int:item_id>")
+@family_required
+def item(item_id):
+    """What a family member wants to know: how many, where, is it on the list, where to buy it."""
+    from .places import place_choices
+
+    item = get_for_family_or_404(Item, item_id)
+    stock = sorted(item.stock, key=lambda s: -s.quantity)
+    kept_at = {s.location_id for s in stock}
+    total = sum(s.quantity for s in stock)
+    entry = item.list_entry
+    return render_template(
+        "catalog/item.html", item=item, stock=stock, total=total,
+        is_out=bool(stock) and total <= 0,
+        is_low=total > 0 and item.low_stock_threshold is not None and total <= item.low_stock_threshold,
+        entry=entry if entry is not None and not entry.in_cart else None,
+        in_cart=entry is not None and entry.in_cart,
+        other_places=[c for c in place_choices() if c[0] not in kept_at],
+        stores=family_rows(Store))
+
+
+@bp.route("/items/<int:item_id>/stores/<int:store_id>", methods=["POST"])
+@family_required
+def toggle_store(item_id, store_id):
+    """Tap a store on the item page to say whether it's sold there."""
+    _require_post_form()
+    item = get_for_family_or_404(Item, item_id)
+    store = get_for_family_or_404(Store, store_id)
+    if store in item.stores:
+        item.stores.remove(store)
+    else:
+        item.stores.append(store)
+    db.session.commit()
+    return redirect(url_for(".item", item_id=item.id) + "#buy-at")
+
+
+@bp.route("/items/<int:item_id>/edit", methods=["GET", "POST"])
 @family_required
 def item_edit(item_id):
     item = get_for_family_or_404(Item, item_id)
-    aisles = family_rows(Aisle)
+    aisles = ordered_aisles()
     stores = family_rows(Store)
 
     form = ItemForm(obj=item)
@@ -193,7 +260,7 @@ def item_edit(item_id):
 
     if form.validate_on_submit():
         if name_in_use(Item, form.name.data, exclude_id=item.id):
-            form.name.errors.append(f"{clean_name(form.name.data)} is already on the list.")
+            form.name.errors.append(f"There's already an item called {clean_name(form.name.data)}.")
         else:
             chosen = set(form.store_ids.data)
             item.set_name(form.name.data)
@@ -204,14 +271,10 @@ def item_edit(item_id):
             item.notes = (form.notes.data or "").strip() or None
             db.session.commit()
             flash(f"Saved {item.name}.", "success")
-            return redirect(url_for(".items"))
+            return redirect(url_for(".item", item_id=item.id))
 
-    stock = sorted(item.stock, key=lambda s: s.location.name_key)
-    kept_at = {s.location_id for s in stock}
-    other_locations = [loc for loc in family_rows(Location) if loc.id not in kept_at]
     return render_template("catalog/item_edit.html", item=item, form=form,
-                           has_aisles=bool(aisles), has_stores=bool(stores),
-                           stock=stock, other_locations=other_locations)
+                           has_aisles=bool(aisles), has_stores=bool(stores))
 
 
 @bp.route("/items/<int:item_id>/delete", methods=["POST"])

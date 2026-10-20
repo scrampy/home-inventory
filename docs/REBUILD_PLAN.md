@@ -17,7 +17,7 @@ Decided 2026-10-20: rebuild rather than continue the Gemini-built code (tag `leg
 | 1 | Skeleton, accounts (sign up, log in, password reset), families (invite by email, accept, roles, remove, leave, switch) | **Done** (branch `rebuild`) |
 | 2 | Catalog: locations, stores, aisles, items, and an item edit page where you attach stores | **Done** (branch `rebuild`) |
 | 3 | Inventory: view per location, +/− buttons, quick "create and add", totals across locations | **Done** (branch `rebuild`) |
-| 4 | Shopping list: add items, check off (struck through, still visible), filter by store, sort by aisle, clear purchased, low-stock view | To do |
+| 4 | Redesign (Find / Places tree / List / More) and shopping list: store mode, aisle order, cart, put-away, running-low suggestions | **Done** (branch `rebuild`) |
 | 5 | Deploy: Dockerfile, Coolify app pointed at the new code, persistent volume for SQLite, nightly backups | Dockerfile done, Coolify steps in [DEPLOY.md](DEPLOY.md); backups to do |
 
 ### Phase 2: what was built
@@ -34,6 +34,12 @@ Decided 2026-10-20: rebuild rather than continue the Gemini-built code (tag `leg
 - The old app's shopping-list flags (Get/Got in ItemStores.csv) weren't imported. The importer lists which items had them.
 - The shopping list gets `family_id` and a unique `(family_id, item_id)` constraint.
 - Aisles are sorted alphabetically. If the shopping list should follow walking order, add an aisle `position` with up/down controls.
+
+### Notes from phase 4
+
+- Design: the clickable prototype is the "Home Inventory redesign" canvas (claude.ai artifact).
+- SQLite migrations run with foreign keys off (`migrations/env.py`): rebuilding a table otherwise cascade-deletes rows in other tables. `test_migrations_keep_existing_rows` guards this.
+- Back up the live database with SQLite's backup API, not by copying the file: in WAL mode, a plain copy can miss recent changes.
 
 ## Deploying (phase 5)
 

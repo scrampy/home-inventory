@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% from '_hi.html' import list_toggle, search_icon %}
+{% block title %}Find{% endblock %}
+{% block content %}
+<div class="d-flex flex-column gap-3">
+  <div>
+    <div class="eyebrow">{{ current_membership().family.name }}</div>
+    <h1 class="page-title">Do we have…</h1>
+  </div>
+
+  <form method="get" action="{{ url_for('find.index') }}" role="search" class="m-0">
+    <label class="search-hi">
+      {{ search_icon('#1E6B52') }}
+      <input type="search" name="q" value="{{ query }}" placeholder="Milk, burgers, coffee…" autocomplete="off"
+             aria-label="Search everything we keep" data-live-search="#find-body" {% if not query %}autofocus{% endif %}>
+    </label>
+  </form>
+
+  <div id="find-body" class="d-flex flex-column gap-3">
+  {% if results is none %}
+    {% if low %}
+    <section class="card-hi p-3 pb-1">
+      <div class="d-flex justify-content-between align-items-baseline mb-1">
+        <h2 class="h6 fw-bold m-0" style="font-size: 1.0625rem">Running low</h2>
+        <a class="small" href="{{ url_for('shopping.index') }}">Shopping list</a>
+      </div>
+      {% for r in low %}
+      <div class="d-flex align-items-center gap-2 border-top" style="min-height: 3.5rem; border-color: var(--hi-line-soft) !important" data-testid="low">
+        <a class="row-main text-decoration-none text-reset" href="{{ url_for('catalog.item', item_id=r.item.id) }}">
+          <span class="row-title">{{ r.item.name }}</span>
+          <span class="row-sub">{% for s in r.item.stock %}{{ place_path(s.location) }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+        </a>
+        <span class="badge-warn">{{ 'Out' if r.out else (r.total|qty) ~ ' left' }}</span>
+        {{ list_toggle(r.item, r.on_list, '#find-body') }}
+      </div>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <a class="d-flex align-items-center gap-3 p-3 rounded-4 text-decoration-none text-white" style="background: var(--hi-accent)" href="{{ url_for('shopping.index') }}">
+      <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>
+      <span class="d-flex flex-column flex-grow-1">
+        <span class="fw-bold" style="font-size: 1.0625rem">Shopping list · {{ list_count }} to get</span>
+        <span class="small" style="opacity: .9">Open it by the store you're going to</span>
+      </span>
+      <span aria-hidden="true" style="font-size: 1.4rem">›</span>
+    </a>
+
+    <a class="d-flex align-items-center gap-3 p-3 card-hi text-decoration-none text-reset" href="{{ url_for('places.index') }}">
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1E6B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
+      <span class="flex-grow-1 fw-semibold">Browse places</span>
+      <span class="chev" aria-hidden="true">›</span>
+    </a>
+  {% else %}
+    <div class="small text-body-secondary">{{ results|length }} match{{ 'es' if results|length != 1 }}</div>
+    {% for r in results %}
+    <div class="card-hi p-3 d-flex flex-column gap-2" data-testid="result">
+      <a class="d-flex justify-content-between align-items-baseline gap-2 text-decoration-none text-reset" href="{{ url_for('catalog.item', item_id=r.item.id) }}">
+        <span class="fw-bold" style="font-size: 1.125rem">{{ r.item.name }}</span>
+        {% if not r.stock %}<span class="text-body-secondary small">Not counted anywhere</span>
+        {% elif r.total <= 0 %}<span class="badge-warn">Out</span>
+        {% else %}<span class="fw-semibold">{{ r.total|qty }}{% if r.item.default_unit %} {{ r.item.default_unit }}{% endif %} in stock</span>{% endif %}
+      </a>
+      {% if r.stock %}
+      <div class="d-flex flex-column gap-1">
+        {% for s in r.stock %}
+        <a class="d-flex justify-content-between text-decoration-none" style="color: #3D4542; font-size: .9375rem" href="{{ url_for('places.show', place_id=s.location_id) }}">
+          <span>{{ place_path(s.location) }}</span><span class="fw-semibold">{{ s.quantity|qty }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {{ list_toggle(r.item, r.on_list, '#find-body', wide=True) }}
+    </div>
+    {% endfor %}
+    {% if not results %}
+    <div class="card-hi p-3 d-flex flex-column gap-3">
+      <div>Nothing called “{{ query }}” yet.</div>
+      <div class="d-flex gap-2">
+        <form method="post" action="{{ url_for('shopping.add') }}" class="flex-fill m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="name" value="{{ query }}">
+          <input type="hidden" name="next" value="{{ url_for('shopping.index') }}">
+          <button class="btn btn-primary w-100" type="submit">Add to shopping list</button>
+        </form>
+        <form method="post" action="{{ url_for('find.new_item') }}" class="flex-fill m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="name" value="{{ query }}">
+          <button class="btn btn-outline-secondary w-100" type="submit">We have some</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -30,7 +30,7 @@ def default_family_name(user):
 @limiter.limit("10 per hour", methods=["POST"])
 def signup():
     if current_user.is_authenticated:
-        return redirect(url_for("main.index"))
+        return redirect(url_for("find.index"))
 
     form = SignupForm()
     token = request.args.get("invite") or form.invite.data
@@ -77,7 +77,7 @@ def signup():
 @bp.route("/login", methods=["GET", "POST"])
 @limiter.limit("10 per minute;50 per hour", methods=["POST"])
 def login():
-    next_url = safe_next_url(request.args.get("next"), url_for("main.index"))
+    next_url = safe_next_url(request.args.get("next"), url_for("find.index"))
     if current_user.is_authenticated:
         return redirect(next_url)
 

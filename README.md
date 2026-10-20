@@ -7,7 +7,12 @@ This is a rebuild. The earlier Gemini-built version is tagged `legacy-gemini`; i
 **Built so far:**
 - **Phase 1:** accounts (sign up, log in, password reset by email) and families (invite by email, accept, admin/member roles, remove members, leave, belong to several families and switch between them).
 - **Phase 2:** the family's catalog: locations, stores and aisles (add, rename, delete, with one-tap common suggestions) and items (quick add by name, search, and an edit page for aisle, stores, unit, low-stock level and notes).
-- **Phase 3:** inventory, the home page: quantities per location with +/- buttons that update in place, quick "add to this location" (creates the item if it's new), totals across locations with Low/Out badges, and a "Where it's kept" section on each item.
+- **Phase 3:** inventory: quantities per place with +/- buttons that update in place, and quick "put something here" that creates the item if it's new.
+- **Phase 4 (redesign):** built around family questions, with a bottom tab bar:
+  - **Find** (home): "do we have…?" search with live results showing how many and where, plus what's running low.
+  - **Places**: a tree (Home › Basement › Freezer) with counts rolled up; each place lists its contents with -/+.
+  - **List**: one family shopping list; pick the store you're at, grouped by aisle in store order, tap to put things in the cart, "Done shopping" adds them to the inventory.
+  - **More**: items, stores, aisles (reorder them), places, family, account.
 - **Import:** `flask --app wsgi import-sharepoint <folder> --family <name or ID> [--commit]` loads the old Power Apps SharePoint exports into a family. Without `--commit` it's a dry run.
 
 ## Stack
@@ -56,7 +61,10 @@ homeinv/
   auth.py         sign up, log in, log out, password reset
   family.py       family page, invites, roles, members, switching families
   catalog.py      locations, stores, aisles (shared routes) and items
-  inventory.py    stock per item and location; +/- and quantity updates (in place via static/app.js)
+  find.py         the Find home page and search
+  places.py       the places tree and place pages
+  inventory.py    stock changes: +/- and quantity updates (in place via static/app.js)
+  shopping.py     the shopping list, store mode and put-away
   importers/      one-off import of the old Power Apps (SharePoint) data; cli.py has the command
   email.py        Mailjet / console / in-memory email backends
   forms.py        WTForms forms

@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}More{% endblock %}
+
+{% macro link_row(href, title, sub, first=False) %}
+<a class="row-hi" href="{{ href }}">
+  <span class="row-main"><span class="row-title" style="font-size: 1rem">{{ title }}</span><span class="row-sub">{{ sub }}</span></span>
+  <span class="chev" aria-hidden="true">›</span>
+</a>
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex flex-column gap-3">
+  <h1 class="page-title">More</h1>
+
+  <section>
+    <h2 class="section-label">Set up</h2>
+    <div class="list-hi">
+      {{ link_row(url_for('catalog.items'), 'All items', counts['items'] ~ ' items · add, rename, delete') }}
+      {{ link_row(url_for('catalog.named_list', kind='stores'), 'Stores', counts['stores'] ~ ' stores') }}
+      {{ link_row(url_for('catalog.named_list', kind='aisles'), 'Aisles', 'Put them in your store’s order') }}
+      {{ link_row(url_for('places.index'), 'Places', counts['places'] ~ ' places · add, rename, move') }}
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-label">Family</h2>
+    <div class="list-hi">
+      {{ link_row(url_for('family.dashboard'), membership.family.name,
+                  membership.family.memberships|length ~ ' member' ~ ('s' if membership.family.memberships|length != 1 else '') ~ ' · invite someone') }}
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-label">You</h2>
+    <div class="list-hi">
+      {{ link_row(url_for('auth.reset_request'), current_user.email, 'Change your password by email') }}
+      <form method="post" action="{{ url_for('auth.logout') }}" class="m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="row-hi w-100 border-0 bg-transparent text-start fw-semibold" style="color: #A33A1E; border-top: 1px solid var(--hi-line-soft) !important" type="submit">Log out</button>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}

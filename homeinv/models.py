@@ -202,15 +202,27 @@ class FamilyOwned:
 
 
 class Location(FamilyOwned, db.Model):
-    """Where things are kept: Pantry, Garage freezer, ..."""
+    """A place things are kept. Places nest: Home › Basement › Freezer.
+
+    Shown to people as "places". Names are unique among siblings only, so
+    Kitchen › Freezer and Basement › Freezer can both exist.
+    """
+
+    __table_args__ = (UniqueConstraint("family_id", "parent_id", "name_key"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # No ON DELETE: the app refuses to delete a place that still has places inside it.
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("location.id"), index=True)
+
+    parent: Mapped["Location | None"] = relationship(remote_side="Location.id", back_populates="children")
+    children: Mapped[list["Location"]] = relationship(back_populates="parent", order_by="Location.name_key")
 
 
 class Aisle(FamilyOwned, db.Model):
-    """A section of a store (Produce, Dairy, ...), used to order the shopping list."""
+    """A section of a store (Produce, Dairy, ...). The shopping list follows their order."""
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    position: Mapped[int] = mapped_column(default=0, server_default="0")
     items: Mapped[list["Item"]] = relationship(back_populates="aisle", passive_deletes=True)
 
 
@@ -262,6 +274,26 @@ class Stock(db.Model):
 Item.stock = relationship(Stock, back_populates="item", passive_deletes=True,
                           order_by=lambda: Stock.location_id)
 Location.stock = relationship(Stock, back_populates="location", passive_deletes=True)
+
+
+class ListEntry(db.Model):
+    """An item on the family's shopping list. One list per family, filtered by store when shopping."""
+
+    __table_args__ = (UniqueConstraint("family_id", "item_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    family_id: Mapped[int] = mapped_column(ForeignKey("family.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("item.id", ondelete="CASCADE"), index=True)
+    quantity: Mapped[float] = mapped_column(default=1)
+    note: Mapped[str | None] = mapped_column(String(200))
+    in_cart: Mapped[bool] = mapped_column(default=False)
+    added_at: Mapped[datetime] = mapped_column(default=utcnow)
+    added_by_id: Mapped[int | None] = mapped_column(ForeignKey("user.id", ondelete="SET NULL"))
+
+    item: Mapped[Item] = relationship(back_populates="list_entry")
+
+
+Item.list_entry = relationship(ListEntry, back_populates="item", uselist=False, passive_deletes=True)
 
 
 def format_quantity(value):

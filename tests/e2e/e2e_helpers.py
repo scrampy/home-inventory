@@ -18,7 +18,15 @@ def assert_fits_phone(page):
     assert overflow <= 0, f"{page.url} scrolls sideways by {overflow}px"
 
 
-def open_menu(page, link_name):
-    """Use the collapsed phone menu to reach a page."""
-    page.get_by_role("button", name="Menu").click()
-    page.get_by_role("link", name=link_name, exact=True).click()
+def tab(page, name):
+    """Tap a tab in the bottom bar: Find, Places, List or More."""
+    page.get_by_role("navigation", name="Main").get_by_role("link", name=name).click()
+
+
+def mark_page(page):
+    """Mark the page; a full reload would lose the mark, an in-place update keeps it."""
+    page.evaluate("window.__noReload = true")
+
+
+def assert_not_reloaded(page):
+    assert page.evaluate("window.__noReload") is True, "the page reloaded"

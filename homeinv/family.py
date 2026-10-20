@@ -179,7 +179,7 @@ def leave():
         return redirect(url_for("family.dashboard"))
     _delete_membership(me)
     flash(f"You left {family.name}.", "info")
-    return redirect(url_for("main.index"))
+    return redirect(url_for("find.index"))
 
 
 def _delete_membership(membership):

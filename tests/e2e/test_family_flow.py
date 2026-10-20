@@ -3,7 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 
-from e2e_helpers import PHONE, assert_fits_phone, fill_signup
+from e2e_helpers import PHONE, assert_fits_phone, fill_signup, tab
 
 pytestmark = pytest.mark.e2e
 
@@ -48,7 +48,7 @@ def test_invite_join_and_promote(live_app, browser):
     bob.reload()
     expect(bob.get_by_role("button", name="Send invite")).to_be_visible()
 
-    # Logging out works from the collapsed phone menu.
-    bob.get_by_role("button", name="Menu").click()
+    # Logging out lives on the More tab.
+    tab(bob, "More")
     bob.get_by_role("button", name="Log out").click()
     expect(bob.get_by_text("You've logged out.")).to_be_visible()
