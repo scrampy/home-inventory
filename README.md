@@ -63,6 +63,6 @@ tests/            pytest tests (helpers.py has the shared helpers); tests/e2e ha
 wsgi.py           entry point: gunicorn wsgi:app
 ```
 
-## Production settings
+## Production
 
-Set `APP_ENV=production`, `SECRET_KEY`, `APP_BASE_URL`, `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAIL_FROM_EMAIL`, and `DATABASE_URL` pointing at a persistent volume. See [.env.example](.env.example). The app won't start if any of these are missing.
+The `Dockerfile` builds a production image. On start, it updates the database schema and serves the app with gunicorn on `$PORT`, keeping the SQLite database in `/app/data` (mount a persistent volume there). Required settings are `SECRET_KEY` (or the older name `FLASK_SECRET_KEY`), `APP_BASE_URL`, and the Mailjet keys and sender, unless `EMAIL_BACKEND=console`. The app won't start if any are missing. Step-by-step Coolify setup: [docs/DEPLOY.md](docs/DEPLOY.md).

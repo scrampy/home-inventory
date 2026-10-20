@@ -1,0 +1,13 @@
+.git
+.venv
+.pytest_cache
+.claude
+__pycache__
+*.py[cod]
+instance
+*.db
+*.db-*
+.env
+docs
+tests
+test-results

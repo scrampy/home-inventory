@@ -87,3 +87,19 @@ def test_rate_limit_on_login():
                  for _ in range(11)]
         assert codes[:10] == [200] * 10 and codes[10] == 429
         db.drop_all()
+
+
+def test_old_coolify_variable_names_still_work(monkeypatch):
+    """Coolify already has FLASK_SECRET_KEY and MAILJET_SENDER_* from the first version of the app."""
+    for name, value in {
+        "APP_ENV": "production", "FLASK_SECRET_KEY": "s" * 40, "APP_BASE_URL": "https://inventory.example",
+        "MAILJET_API_KEY": "key", "MAILJET_SECRET_KEY": "secret",
+        "MAILJET_SENDER_EMAIL": "home@inventory.example", "MAILJET_SENDER_NAME": "Our House",
+    }.items():
+        monkeypatch.setenv(name, value)
+    for name in ("SECRET_KEY", "MAIL_FROM_EMAIL", "MAIL_FROM_NAME"):
+        monkeypatch.delenv(name, raising=False)
+    app = create_app()
+    assert app.config["SECRET_KEY"] == "s" * 40
+    assert app.config["MAIL_FROM_EMAIL"] == "home@inventory.example"
+    assert app.config["MAIL_FROM_NAME"] == "Our House"

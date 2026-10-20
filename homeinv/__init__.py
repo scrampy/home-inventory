@@ -30,9 +30,11 @@ def create_app(overrides=None):
     if app.config["APP_ENV"] != "testing":
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
+    # Trust X-Forwarded-For only, to rate-limit by the visitor's real IP. Host and
+    # scheme aren't needed: email links come from APP_BASE_URL and redirects are relative.
     hops = app.config["PROXY_HOPS"]
     if hops:
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=hops)
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=0, x_host=0)
 
     db.init_app(app)
     migrations_dir = os.path.join(os.path.dirname(app.root_path), "migrations")

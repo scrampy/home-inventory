@@ -25,20 +25,29 @@ def load_config(instance_path, overrides=None):
 
     default_db = "sqlite:///" + os.path.join(instance_path, "homeinv.db").replace("\\", "/")
 
+    # Older names from the first version of the app are accepted too, so
+    # variables already set in Coolify keep working.
+    def env_var(name, *old_names, default=None):
+        for key in (name, *old_names):
+            if os.environ.get(key):
+                return os.environ[key]
+        return default
+
     config = {
         "APP_ENV": env,
-        "SECRET_KEY": os.environ.get("SECRET_KEY"),
+        "SECRET_KEY": env_var("SECRET_KEY", "FLASK_SECRET_KEY"),
         "SQLALCHEMY_DATABASE_URI": os.environ.get("DATABASE_URL", default_db),
         # Base URL used to build links in emails. Never taken from the request's
         # Host header in production, so a forged header can't poison reset links.
         "APP_BASE_URL": (os.environ.get("APP_BASE_URL") or "").rstrip("/") or None,
         "MAILJET_API_KEY": os.environ.get("MAILJET_API_KEY"),
         "MAILJET_SECRET_KEY": os.environ.get("MAILJET_SECRET_KEY"),
-        "MAIL_FROM_EMAIL": os.environ.get("MAIL_FROM_EMAIL", "noreply@example.com"),
-        "MAIL_FROM_NAME": os.environ.get("MAIL_FROM_NAME", "Home Inventory"),
+        "MAIL_FROM_EMAIL": env_var("MAIL_FROM_EMAIL", "MAILJET_SENDER_EMAIL", default="noreply@example.com"),
+        "MAIL_FROM_NAME": env_var("MAIL_FROM_NAME", "MAILJET_SENDER_NAME", default="Home Inventory"),
         # "mailjet", "console" (prints emails to the log) or "memory" (tests).
         "EMAIL_BACKEND": os.environ.get("EMAIL_BACKEND"),
-        # Number of reverse proxies in front of the app (Cloudflare Tunnel -> Traefik).
+        # Number of reverse proxies in front of the app (Cloudflare Tunnel -> Traefik = 2).
+        # Only used to find the visitor's IP address for rate limits.
         "PROXY_HOPS": int(os.environ.get("PROXY_HOPS", "0")),
         "RATELIMIT_ENABLED": _bool("RATELIMIT_ENABLED", True),
         "RATELIMIT_STORAGE_URI": os.environ.get("RATELIMIT_STORAGE_URI", "memory://"),

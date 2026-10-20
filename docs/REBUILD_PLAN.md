@@ -18,7 +18,7 @@ Decided 2026-10-20: rebuild rather than continue the Gemini-built code (tag `leg
 | 2 | Catalog: locations, stores, aisles, items, and an item edit page where you attach stores | **Done** (branch `rebuild`) |
 | 3 | Inventory: view per location, +/− buttons, quick "create and add", totals across locations | To do |
 | 4 | Shopping list: add items, check off (struck through, still visible), filter by store, sort by aisle, clear purchased, low-stock view | To do |
-| 5 | Deploy: Dockerfile, Coolify app pointed at the new code, persistent volume for SQLite, nightly backups | To do |
+| 5 | Deploy: Dockerfile, Coolify app pointed at the new code, persistent volume for SQLite, nightly backups | Dockerfile done, Coolify steps in [DEPLOY.md](DEPLOY.md); backups to do |
 
 ### Phase 2: what was built
 
