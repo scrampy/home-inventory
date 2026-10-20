@@ -241,3 +241,32 @@ class Item(FamilyOwned, db.Model):
     stores: Mapped[list[Store]] = relationship(
         secondary=item_store, back_populates="items", order_by="Store.name_key"
     )
+
+
+class Stock(db.Model):
+    """How much of an item is kept at one location, e.g. 2 bags of peas in the basement freezer."""
+
+    __table_args__ = (UniqueConstraint("item_id", "location_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    family_id: Mapped[int] = mapped_column(ForeignKey("family.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("item.id", ondelete="CASCADE"), index=True)
+    location_id: Mapped[int] = mapped_column(ForeignKey("location.id", ondelete="CASCADE"), index=True)
+    quantity: Mapped[float] = mapped_column(default=0)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
+
+    item: Mapped[Item] = relationship(back_populates="stock")
+    location: Mapped[Location] = relationship(back_populates="stock")
+
+
+Item.stock = relationship(Stock, back_populates="item", passive_deletes=True,
+                          order_by=lambda: Stock.location_id)
+Location.stock = relationship(Stock, back_populates="location", passive_deletes=True)
+
+
+def format_quantity(value):
+    """1.0 -> "1", 0.5 -> "0.5", 2.25 -> "2.25"."""
+    if value is None:
+        return ""
+    text = f"{value:.2f}".rstrip("0").rstrip(".")
+    return text or "0"

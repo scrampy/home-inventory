@@ -23,6 +23,7 @@
           {% if membership %}
           {% set nav_kind = request.view_args.get('kind') if request.view_args else None %}
           {% for label, endpoint, args, active in [
+                ('Inventory', 'inventory.index', {}, request.endpoint == 'inventory.index'),
                 ('Items', 'catalog.items', {}, request.endpoint in ('catalog.items', 'catalog.item_edit')),
                 ('Locations', 'catalog.named_list', {'kind': 'locations'}, nav_kind == 'locations'),
                 ('Stores', 'catalog.named_list', {'kind': 'stores'}, nav_kind == 'stores'),
@@ -62,6 +63,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
           integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

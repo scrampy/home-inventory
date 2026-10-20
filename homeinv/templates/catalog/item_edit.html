@@ -2,7 +2,7 @@
 {% from '_forms.html' import field, post_button %}
 {% block title %}{{ item.name }}{% endblock %}
 {% block content %}
-<nav class="small mb-2"><a href="{{ url_for('catalog.items') }}">&larr; Items</a></nav>
+<nav class="small mb-2"><a href="{{ url_for('catalog.items') }}">&larr; Items</a> · <a href="{{ url_for('inventory.index') }}">Inventory</a></nav>
 <h1 class="h3 mb-3">{{ item.name }}</h1>
 
 <form method="post" novalidate>
@@ -46,6 +46,31 @@
     <a class="btn btn-outline-secondary" href="{{ url_for('catalog.items') }}">Cancel</a>
   </div>
 </form>
+
+<section class="border-top mt-4 pt-3">
+  <h2 class="h5">Where it's kept</h2>
+  {% if stock %}
+    {% set total = stock|sum(attribute='quantity') %}
+    <p class="small text-body-secondary mb-2">Total: <strong>{{ total|qty }}</strong>{% if item.default_unit %} {{ item.default_unit }}{% endif %}
+      {%- if item.low_stock_threshold is not none and total <= item.low_stock_threshold %} · <span class="text-warning-emphasis">running low</span>{% endif %}</p>
+    <ul class="list-group mb-2">
+      {% for s in stock %}{% with stock=s, view='item' %}{% include 'inventory/_row.html' %}{% endwith %}{% endfor %}
+    </ul>
+  {% else %}
+    <p class="small text-body-secondary">Not recorded in any location yet.</p>
+  {% endif %}
+  {% if other_locations %}
+  <form method="post" action="{{ url_for('inventory.add') }}" class="d-flex gap-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="name" value="{{ item.name }}">
+    <input type="hidden" name="next" value="{{ url_for('catalog.item_edit', item_id=item.id) }}">
+    <select class="form-select" name="location_id" aria-label="Location">
+      {% for loc in other_locations %}<option value="{{ loc.id }}">{{ loc.name }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline-primary text-nowrap" type="submit">Keep here</button>
+  </form>
+  {% endif %}
+</section>
 
 <div class="border-top mt-4 pt-3">
   {{ post_button(url_for('catalog.item_delete', item_id=item.id), 'Delete item', 'btn btn-outline-danger btn-sm',

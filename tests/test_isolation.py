@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from helpers import invite, signup, user
 from homeinv.extensions import db
-from homeinv.models import Aisle, Family, Invitation, Item, Location, Membership, Store
+from homeinv.models import Aisle, Family, Invitation, Item, Location, Membership, Stock, Store
 
 
 @pytest.fixture
@@ -23,6 +23,8 @@ def two_families(client, new_client):
     eve.post("/stores", data={"name": "Eve store"})
     eve.post("/aisles", data={"name": "Eve aisle"})
     eve.post("/items", data={"name": "Eve item"})
+    eve_loc = db.session.scalar(select(Location.id).filter_by(name="Eve pantry"))
+    eve.post("/inventory/add", data={"location_id": eve_loc, "name": "Eve item"})
     invite(eve, "friend@example.com")
     family = db.session.get(Family, user("eve@example.com").memberships[0].family_id)
     return {
@@ -33,6 +35,7 @@ def two_families(client, new_client):
         "store": db.session.scalar(select(Store.id).filter_by(name="Eve store")),
         "aisle": db.session.scalar(select(Aisle.id).filter_by(name="Eve aisle")),
         "item": db.session.scalar(select(Item.id).filter_by(name="Eve item")),
+        "stock": db.session.scalar(select(Stock.id)),
     }
 
 
@@ -57,6 +60,9 @@ CASES = {
         ("POST", "/items/{item}", {"name": "Hacked", "aisle_id": "0"}),
     ],
     "catalog.item_delete": [("POST", "/items/{item}/delete", {})],
+    "inventory.adjust": [("POST", "/inventory/{stock}/adjust", {"delta": "1"})],
+    "inventory.set_quantity": [("POST", "/inventory/{stock}/set", {"quantity": "99"})],
+    "inventory.delete": [("POST", "/inventory/{stock}/delete", {})],
 }
 
 
@@ -67,6 +73,8 @@ def snapshot():
     for model in (Location, Store, Aisle, Item):
         rows[model.__name__] = sorted(r.name for r in db.session.scalars(
             select(model).filter_by(family_id=eve_family.id)))
+    rows["stock"] = sorted((s.item.name, s.location.name, s.quantity) for s in db.session.scalars(
+        select(Stock).filter_by(family_id=eve_family.id)))
     rows["family"] = eve_family.name
     rows["members"] = sorted((m.user.email, m.role) for m in eve_family.memberships)
     rows["invites"] = [(i.email, i.revoked_at) for i in eve_family.invitations]
@@ -84,9 +92,17 @@ def test_other_familys_ids_are_not_found(client, two_families, endpoint):
     assert snapshot() == before
 
 
+def test_cannot_add_stock_to_other_familys_location(client, two_families):
+    before = snapshot()
+    resp = client.post("/inventory/add", data={"location_id": two_families["location"], "name": "Sneaky"})
+    assert resp.status_code == 404
+    assert client.get(f"/inventory?location={two_families['location']}").status_code == 404
+    assert snapshot() == before
+
+
 def test_ann_still_sees_only_her_own_rows(client, two_families):
     eve_names = [b"Eve pantry", b"Eve store", b"Eve aisle", b"Eve item", b"Eve&#39;s", b"eve@example.com"]
-    for path in ("/items", "/locations", "/stores", "/aisles", "/family"):
+    for path in ("/inventory", "/items", "/locations", "/stores", "/aisles", "/family"):
         page = client.get(path).data
         assert not [n for n in eve_names if n in page], path
 

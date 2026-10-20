@@ -19,3 +19,6 @@ instance/
 .claude/settings.local.json
 .DS_Store
 Thumbs.db
+
+# Personal data exported from the old app; never commit it.
+seed data/

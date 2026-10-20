@@ -16,7 +16,7 @@ Decided 2026-10-20: rebuild rather than continue the Gemini-built code (tag `leg
 |---|---|---|
 | 1 | Skeleton, accounts (sign up, log in, password reset), families (invite by email, accept, roles, remove, leave, switch) | **Done** (branch `rebuild`) |
 | 2 | Catalog: locations, stores, aisles, items, and an item edit page where you attach stores | **Done** (branch `rebuild`) |
-| 3 | Inventory: view per location, +/− buttons, quick "create and add", totals across locations | To do |
+| 3 | Inventory: view per location, +/− buttons, quick "create and add", totals across locations | **Done** (branch `rebuild`) |
 | 4 | Shopping list: add items, check off (struck through, still visible), filter by store, sort by aisle, clear purchased, low-stock view | To do |
 | 5 | Deploy: Dockerfile, Coolify app pointed at the new code, persistent volume for SQLite, nightly backups | Dockerfile done, Coolify steps in [DEPLOY.md](DEPLOY.md); backups to do |
 
@@ -30,8 +30,8 @@ Decided 2026-10-20: rebuild rather than continue the Gemini-built code (tag `leg
 ### Notes for phase 3 and 4
 
 - Inventory rows (item × location × quantity) are family-owned too: give them `family_id`, and check that the item and location belong to the same family.
-- Show item counts on the Locations page once inventory exists, and decide what deleting a location that still holds items does (block it, or move them).
-- Inventory becomes the home page (`main.index`).
+- Done in phase 3: item counts on the Locations page; deleting a location removes its stock rows (the confirmation says so); inventory is the home page.
+- The old app's shopping-list flags (Get/Got in ItemStores.csv) weren't imported. The importer lists which items had them.
 - The shopping list gets `family_id` and a unique `(family_id, item_id)` constraint.
 - Aisles are sorted alphabetically. If the shopping list should follow walking order, add an aisle `position` with up/down controls.
 

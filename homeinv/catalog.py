@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from .extensions import db
 from .forms import ActionForm, ItemForm, NameForm
-from .models import Aisle, Item, Location, Store, clean_name, item_store, name_key
+from .models import Aisle, Item, Location, Stock, Store, clean_name, item_store, name_key
 from .security import (current_family_id, family_required, family_rows, family_select,
                        get_for_family_or_404, name_in_use)
 
@@ -35,7 +35,7 @@ KINDS = {
     "locations": Kind(
         "locations", Location, "location", "Locations",
         "Places you keep things, like the pantry or the garage freezer.",
-        "Delete {name}?",
+        "Delete {name}? Anything recorded there is removed from the inventory.",
         ("Pantry", "Refrigerator", "Freezer"),
     ),
     "stores": Kind(
@@ -84,7 +84,8 @@ def usage_counts(kind):
         query = (select(item_store.c.store_id, func.count()).join(Store, Store.id == item_store.c.store_id)
                  .where(Store.family_id == family_id).group_by(item_store.c.store_id))
     else:
-        return {}  # locations get counts once inventory exists
+        query = (select(Stock.location_id, func.count()).where(Stock.family_id == family_id)
+                 .group_by(Stock.location_id))
     return dict(db.session.execute(query).all())
 
 
@@ -205,8 +206,12 @@ def item_edit(item_id):
             flash(f"Saved {item.name}.", "success")
             return redirect(url_for(".items"))
 
+    stock = sorted(item.stock, key=lambda s: s.location.name_key)
+    kept_at = {s.location_id for s in stock}
+    other_locations = [loc for loc in family_rows(Location) if loc.id not in kept_at]
     return render_template("catalog/item_edit.html", item=item, form=form,
-                           has_aisles=bool(aisles), has_stores=bool(stores))
+                           has_aisles=bool(aisles), has_stores=bool(stores),
+                           stock=stock, other_locations=other_locations)
 
 
 @bp.route("/items/<int:item_id>/delete", methods=["POST"])

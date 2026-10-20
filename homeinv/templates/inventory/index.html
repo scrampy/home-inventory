@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}Inventory{% endblock %}
+{% block content %}
+<h1 class="h3 mb-2">Inventory</h1>
+
+{% if not locations %}
+  <p>Start by adding the places you keep things, like the pantry or the freezer.</p>
+  <a class="btn btn-primary" href="{{ url_for('catalog.named_list', kind='locations') }}">Add locations</a>
+{% else %}
+
+<nav class="loc-pills mb-3" aria-label="Locations">
+  <a class="btn btn-sm {{ 'btn-primary' if not selected else 'btn-outline-secondary' }}"
+     href="{{ url_for('inventory.index') }}" {% if not selected %}aria-current="page"{% endif %}>All</a>
+  {% for loc in locations %}
+  <a class="btn btn-sm text-nowrap {{ 'btn-primary' if selected and selected.id == loc.id else 'btn-outline-secondary' }}"
+     href="{{ url_for('inventory.index', location=loc.id) }}" {% if selected and selected.id == loc.id %}aria-current="page"{% endif %}>
+    {{ loc.name }}{% if counts.get(loc.id) %} <span class="opacity-75">{{ counts[loc.id] }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</nav>
+
+<form method="post" action="{{ url_for('inventory.add') }}" class="mb-3" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="next" value="{{ request.full_path }}">
+  <datalist id="item-names">{% for n in item_names %}<option value="{{ n }}">{% endfor %}</datalist>
+  {% if selected %}
+    <input type="hidden" name="location_id" value="{{ selected.id }}">
+    <div class="input-group">
+      <input class="form-control" name="name" list="item-names" maxlength="80" required
+             placeholder="Add to {{ selected.name }}" aria-label="Item to add to {{ selected.name }}">
+      <button class="btn btn-primary" type="submit">Add</button>
+    </div>
+    <div class="form-text">Pick an item or type a new one. Adding an item that's already here adds 1.</div>
+  {% else %}
+    <div class="d-flex gap-2">
+      <input class="form-control" name="name" list="item-names" maxlength="80" required
+             placeholder="Item" aria-label="Item to add">
+      <select class="form-select w-auto" name="location_id" aria-label="Location" required>
+        {% for loc in locations %}<option value="{{ loc.id }}">{{ loc.name }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-primary" type="submit">Add</button>
+    </div>
+  {% endif %}
+</form>
+
+{% if selected %}
+  {% if rows %}
+  <ul class="list-group">
+    {% for stock in rows %}{% include 'inventory/_row.html' with context %}{% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-body-secondary">Nothing in {{ selected.name }} yet.</p>
+  {% endif %}
+{% else %}
+  {% if grouped %}
+  <div class="list-group">
+    {% for item, stocks in grouped.items() %}
+    {% set total = stocks|sum(attribute='quantity') %}
+    {% set low = item.low_stock_threshold is not none and total <= item.low_stock_threshold %}
+    <a class="list-group-item list-group-item-action" href="{{ url_for('catalog.item_edit', item_id=item.id) }}" data-testid="item-total">
+      <div class="d-flex justify-content-between align-items-center gap-2">
+        <span class="fw-medium text-truncate">{{ item.name }}</span>
+        <span class="text-nowrap">
+          {% if total == 0 %}<span class="badge text-bg-warning">Out</span>
+          {% elif low %}<span class="badge text-bg-warning">Low</span>{% endif %}
+          <span class="fw-semibold">{{ total|qty }}</span>{% if item.default_unit %} <span class="small text-body-secondary">{{ item.default_unit }}</span>{% endif %}
+        </span>
+      </div>
+      <div class="small text-body-secondary">
+        {% for s in stocks %}{{ s.location.name }} {{ s.quantity|qty }}{% if not loop.last %} · {% endif %}{% endfor %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-body-secondary">Nothing in stock yet. Pick a location above and add what's there.</p>
+  {% endif %}
+{% endif %}
+
+{% endif %}
+{% endblock %}

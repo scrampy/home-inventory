@@ -1,0 +1,51 @@
+{# One stock row with -, quantity and + controls.
+   view "location": show the item name (inventory page); view "item": show the location (item page). #}
+{% set next_url = request.form.get('next') or request.full_path if request.method == 'POST' else request.full_path %}
+<li class="list-group-item stock-row" data-row id="stock-{{ stock.id }}" data-testid="stock">
+  <div class="d-flex align-items-center gap-2">
+    <div class="me-auto text-truncate">
+      {% if view == 'item' %}
+        <span class="fw-medium">{{ stock.location.name }}</span>
+      {% else %}
+        <a class="fw-medium text-reset text-decoration-none" href="{{ url_for('catalog.item_edit', item_id=stock.item_id) }}">{{ stock.item.name }}</a>
+      {% endif %}
+      {% if stock.quantity == 0 %}<span class="badge text-bg-warning ms-1">Out</span>{% endif %}
+    </div>
+    <div class="qty-controls">
+      <form method="post" action="{{ url_for('inventory.adjust', stock_id=stock.id) }}" data-inplace>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="delta" value="-1">
+        <input type="hidden" name="view" value="{{ view }}">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <button class="btn btn-outline-secondary qty-btn" type="submit" aria-label="One less {{ stock.item.name }}"
+                {% if stock.quantity <= 0 %}disabled{% endif %}>&minus;</button>
+      </form>
+      <form method="post" action="{{ url_for('inventory.set_quantity', stock_id=stock.id) }}" data-inplace>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="view" value="{{ view }}">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <input class="form-control qty-input{% if error %} is-invalid{% endif %}" type="number" name="quantity"
+               value="{{ stock.quantity|qty }}" min="0" step="any" inputmode="decimal" data-autosubmit
+               aria-label="Quantity of {{ stock.item.name }} in {{ stock.location.name }}">
+      </form>
+      <form method="post" action="{{ url_for('inventory.adjust', stock_id=stock.id) }}" data-inplace>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="delta" value="1">
+        <input type="hidden" name="view" value="{{ view }}">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <button class="btn btn-outline-secondary qty-btn" type="submit" aria-label="One more {{ stock.item.name }}">+</button>
+      </form>
+    </div>
+  </div>
+  {% if error %}<div class="text-danger small mt-1">{{ error }}</div>{% endif %}
+  {% if view == 'item' %}
+  <div class="text-end mt-1">
+    <form method="post" action="{{ url_for('inventory.delete', stock_id=stock.id) }}" class="d-inline"
+          onsubmit="return confirm({{ ('Stop keeping ' ~ stock.item.name ~ ' in ' ~ stock.location.name ~ '?')|tojson|forceescape }})">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ url_for('catalog.item_edit', item_id=stock.item_id) }}">
+      <button class="btn btn-link btn-sm text-danger p-0" type="submit">Not kept here</button>
+    </form>
+  </div>
+  {% endif %}
+</li>

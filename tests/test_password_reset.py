@@ -25,7 +25,7 @@ def test_reset_flow_changes_password(client, outbox):
     resp = client.post(path, data={"password": NEW_PASSWORD, "confirm": NEW_PASSWORD}, follow_redirects=True)
     assert b"Your password has been changed" in resp.data
     assert b"incorrect" in login(client, "ann@example.com", PASSWORD).data
-    assert login(client, "ann@example.com", NEW_PASSWORD).request.path == "/items"
+    assert login(client, "ann@example.com", NEW_PASSWORD).request.path == "/inventory"
 
 
 def test_unknown_email_gets_same_page_and_no_email(client, outbox):
