@@ -52,6 +52,18 @@ def test_places_tree_stock_and_find(live_app, browser):
     assert_not_reloaded(page)
     expect(page.get_by_role("navigation", name="Main")).to_contain_text("1")  # List badge updated
 
+    # Back in stock: + takes it off the list again, the badge goes away, and Undo puts it back.
+    page.get_by_role("button", name="One more Burgers").click()
+    expect(qty).to_have_value("1")
+    expect(page.get_by_test_id("list-removed")).to_contain_text("Taken off the shopping list.")
+    expect(page.locator(".tab-badge")).to_have_count(0)
+    page.get_by_role("button", name="Undo: put Burgers back on the shopping list").click()
+    expect(page.locator(".tab-badge")).to_have_text("1 to get")
+    expect(page.get_by_test_id("list-removed")).to_have_count(0)
+    assert_not_reloaded(page)
+    page.get_by_role("button", name="One less Burgers").click()  # back to zero for the checks below
+    expect(qty).to_have_value("0")
+
     # Places shows rolled-up counts.
     tab(page, "Places")
     expect(page.get_by_test_id("place").filter(has_text="Home")).to_contain_text("1 out")

@@ -44,6 +44,17 @@
     </div>
   </div>
   {% if error %}<div class="text-danger small pb-2">{{ error }}</div>{% endif %}
+  {% if list_removed %}
+    <div class="d-flex align-items-center gap-2 pb-2" role="status" data-testid="list-removed">
+      <span class="flex-grow-1 small" style="color: var(--hi-accent-dark)">Taken off the shopping list.</span>
+      <form method="post" action="{{ url_for('shopping.toggle_item', item_id=stock.item_id) }}" data-refresh="#stock-{{ stock.id }}" class="m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <button class="btn btn-link btn-sm p-0 fw-semibold" style="min-height: 0" type="submit"
+                aria-label="Undo: put {{ stock.item.name }} back on the shopping list">Undo</button>
+      </form>
+    </div>
+  {% endif %}
   {% if view == 'location' and stock.quantity <= 0 %}
     {% set entry = stock.item.list_entry %}
     <div class="d-flex align-items-center gap-2 pb-2">

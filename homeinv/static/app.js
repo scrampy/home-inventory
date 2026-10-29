@@ -25,6 +25,20 @@
     return swapped;
   }
 
+  // The List tab's count, after a change made in the background.
+  function updateListBadge(count) {
+    const tab = document.querySelector('.tabbar a[href$="/list"]');
+    if (!tab) return;
+    let badge = tab.querySelector(".tab-badge");
+    if (count <= 0) { if (badge) badge.remove(); return; }
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "tab-badge";
+      tab.appendChild(badge);
+    }
+    badge.innerHTML = count + '<span class="visually-hidden"> to get</span>';
+  }
+
   document.addEventListener("submit", async function (event) {
     const form = event.target;
     const refresh = form.dataset.refresh;
@@ -46,6 +60,8 @@
         const template = document.createElement("template");
         template.innerHTML = html.trim();
         row.replaceWith(template.content.firstElementChild);
+        const listCount = response.headers.get("X-List-Count");
+        if (listCount !== null) updateListBadge(Number(listCount));
         return;
       }
       if (!response.ok || !swapFrom(html, refresh.split(",").concat([".tabbar"]))) {
