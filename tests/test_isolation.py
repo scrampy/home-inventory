@@ -10,8 +10,12 @@ from sqlalchemy import select
 
 from helpers import invite, login, signup, user
 from homeinv.extensions import db
-from homeinv.models import (Aisle, Family, Invitation, Item, ListEntry, Location, Membership, Price, Stock, Store,
-                            Tablet)
+from homeinv.models import (AlexaLink, Aisle, Family, Invitation, Item, ListEntry, Location, Membership, Price,
+                            Stock, Store, Tablet)
+
+
+def family_id_of(email):
+    return user(email).memberships[0].family_id
 
 
 @pytest.fixture
@@ -37,6 +41,11 @@ def two_families(client, new_client):
     eve_tablet = new_client()
     login(eve_tablet, "eve@example.com")
     eve_tablet.post("/tablet/setup", data={"location_id": eve_loc})
+    # An Alexa linked to Eve's family.
+    eve_alexa, _ = AlexaLink.start(family_id_of("eve@example.com"), None)
+    db.session.add(eve_alexa)
+    eve_alexa.complete("amzn1.ask.account.eve")
+    db.session.commit()
     # Ann's own rows, to mix with Eve's IDs.
     client.post("/stores", data={"name": "Ann store"})
     client.post("/items", data={"name": "Ann item"})
@@ -53,6 +62,7 @@ def two_families(client, new_client):
         "entry": db.session.scalar(select(ListEntry.id)),
         "price": db.session.scalar(select(Price.id)),
         "tablet": db.session.scalar(select(Tablet.id)),
+        "alexa_link": db.session.scalar(select(AlexaLink.id)),
         "ann_store": db.session.scalar(select(Store.id).filter_by(name="Ann store")),
         "ann_item": db.session.scalar(select(Item.id).filter_by(name="Ann item")),
     }
@@ -100,6 +110,7 @@ CASES = {
     "inventory.set_quantity": [("POST", "/inventory/{stock}/set", {"quantity": "99"})],
     "inventory.delete": [("POST", "/inventory/{stock}/delete", {})],
     "tablet.unpair": [("POST", "/tablets/{tablet}/unpair", {})],
+    "alexa.unlink": [("POST", "/more/alexa/{alexa_link}/unlink", {})],
     # These two run as a tablet set up in Ann's family (see TABLET_ENDPOINTS).
     "tablet.adjust": [("POST", "/tablet/stock/{stock}/adjust", {"delta": "1"})],
     "tablet.toggle_list": [("POST", "/tablet/stock/{stock}/list", {})],
@@ -130,6 +141,7 @@ def snapshot():
         select(Price).filter_by(family_id=eve_family.id)))
     rows["all_prices"] = db.session.query(Price).count()
     rows["tablets"] = [t.location.name for t in db.session.scalars(select(Tablet).filter_by(family_id=eve_family.id))]
+    rows["alexa_links"] = db.session.query(AlexaLink).filter_by(family_id=eve_family.id).count()
     rows["family"] = eve_family.name
     rows["members"] = sorted((m.user.email, m.role) for m in eve_family.memberships)
     rows["invites"] = [(i.email, i.revoked_at) for i in eve_family.invitations]

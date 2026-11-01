@@ -15,6 +15,7 @@ This is a rebuild. The earlier Gemini-built version is tagged `legacy-gemini`; i
   - **More**: items, stores, aisles (reorder them), places, family, account.
 - **Prices:** record what you paid (at Done shopping, or on an item's page). Each item shows its usual price (median of the last 5) and the lowest paid. Type a shelf price to see if it's a good one. Dates are automatic; a wrong price is removed rather than edited.
 - **Tablets:** an old tablet (e.g. a Fire HD 8) kept in one place, like the cold room, shows that place's items as big tiles with − and + so anyone can record what goes in and out. To set one up, sign in on the tablet, open the place, and under **Tablet for …** tap **Use this device as the … tablet**. That signs you out and leaves the tablet able to change only that place (and the places inside it). Point the tablet's browser or kiosk app at `/tablet`. Unpair it from the same section of the place page.
+- **Alexa:** "Alexa, ask Home Inventory how many coffees are in the cold room", "... tell Home Inventory to add blueberries to the list", "... we used two coffees from the cold room", "... what's on the list". A private skill in your Amazon developer account, pointed at `/alexa`. Link an Amazon account from **More › Alexa** with a spoken 6-digit code. Setup: [docs/ALEXA.md](docs/ALEXA.md).
 - **Import:** `flask --app wsgi import-sharepoint <folder> --family <name or ID> [--commit]` loads the old Power Apps SharePoint exports into a family. Without `--commit` it's a dry run.
 
 ## Stack
@@ -69,6 +70,9 @@ homeinv/
   shopping.py     the shopping list, store mode and put-away
   prices.py       prices paid, usual price, shelf-price check
   tablet.py       tablets kept in a place: setup/unpair, and the /tablet screen (static/tablet.js, ES5 for old browsers)
+  alexa.py        voice commands: the /alexa endpoint, linking an Amazon account, the More › Alexa page
+  alexa_verify.py checks that /alexa requests really come from Amazon
+  alexa_model.py  what can be said to the skill (its interaction model), with the family's names
   importers/      one-off import of the old Power Apps (SharePoint) data; cli.py has the command
   email.py        Mailjet / console / in-memory email backends
   forms.py        WTForms forms

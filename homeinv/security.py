@@ -111,6 +111,10 @@ def current_family_id():
     tablet = g.get("tablet")
     if tablet is not None:
         return tablet.family_id
+    # So does a linked Alexa (alexa.py).
+    alexa_link = g.get("alexa_link")
+    if alexa_link is not None:
+        return alexa_link.family_id
     return current_membership().family_id
 
 

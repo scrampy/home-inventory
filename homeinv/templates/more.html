@@ -19,6 +19,7 @@
       {{ link_row(url_for('catalog.named_list', kind='stores'), 'Stores', counts['stores'] ~ ' stores') }}
       {{ link_row(url_for('catalog.named_list', kind='aisles'), 'Aisles', 'Put them in your store’s order') }}
       {{ link_row(url_for('places.index'), 'Places', counts['places'] ~ ' places · add, rename, move') }}
+      {{ link_row(url_for('alexa.setup'), 'Alexa', 'Ask and change things by voice') }}
     </div>
   </section>
 

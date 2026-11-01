@@ -65,6 +65,7 @@ def create_app(overrides=None):
     def load_user(session_id):
         return User.from_session_id(session_id)
 
+    from .alexa import bp as alexa_bp
     from .auth import bp as auth_bp
     from .catalog import bp as catalog_bp
     from .family import bp as family_bp
@@ -77,7 +78,7 @@ def create_app(overrides=None):
     from .tablet import bp as tablet_bp
 
     for blueprint in (main_bp, auth_bp, family_bp, find_bp, places_bp, catalog_bp, inventory_bp, shopping_bp,
-                      prices_bp, tablet_bp):
+                      prices_bp, tablet_bp, alexa_bp):
         app.register_blueprint(blueprint)
 
     from . import cli

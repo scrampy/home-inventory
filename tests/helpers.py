@@ -2,12 +2,28 @@
 
 import re
 
+from flask.testing import FlaskClient
 from sqlalchemy import select
 
 from homeinv.extensions import db
 from homeinv.models import User
 
 PASSWORD = "correct-horse-1"
+
+
+class FreshContextClient(FlaskClient):
+    """Gives every request its own app context, as in production.
+
+    Tests hold an app context open so they can query the database. Without this,
+    requests would reuse it and share `flask.g`, where Flask-Login caches the
+    signed-in user, so two "browsers" would see each other's logins.
+    """
+
+    def open(self, *args, **kwargs):
+        with self.application.app_context():
+            response = super().open(*args, **kwargs)
+        db.session.expire_all()  # see what the request wrote
+        return response
 
 
 def signup(client, email, password=PASSWORD, name="", family_name="", invite=None):

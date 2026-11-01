@@ -362,3 +362,64 @@ class Tablet(db.Model):
 
 Location.tablets = relationship(Tablet, back_populates="location", passive_deletes=True,
                                 order_by=lambda: Tablet.created_at)
+
+
+class AlexaLink(db.Model):
+    """An Amazon account whose Alexa can use the family's inventory by voice (alexa.py).
+
+    Made from the Alexa page: the app shows a 6-digit code, and someone says
+    "Alexa, tell Home Inventory my code is ..." within 10 minutes. Until then
+    only code_hash is set; after, alexa_user_hash is. Like tablets, nothing
+    secret is stored in the clear, and deleting the row (Unlink) stops it working.
+    """
+
+    CODE_MINUTES = 10
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    family_id: Mapped[int] = mapped_column(ForeignKey("family.id", ondelete="CASCADE"), index=True)
+    code_hash: Mapped[str | None] = mapped_column(String(64), index=True)
+    code_expires_at: Mapped[datetime | None]
+    # Hash of the userId Alexa sends: one per Amazon account (and per skill).
+    alexa_user_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("user.id", ondelete="SET NULL"))
+    linked_at: Mapped[datetime | None]
+    last_used_at: Mapped[datetime | None]
+
+    created_by: Mapped[User | None] = relationship()
+
+    @property
+    def is_linked(self):
+        return self.alexa_user_hash is not None
+
+    @classmethod
+    def start(cls, family_id, created_by):
+        """A new link waiting for its code to be said. Returns (link, code)."""
+        while True:
+            code = str(secrets.randbelow(900_000) + 100_000)  # 6 digits, never a leading zero
+            if cls.waiting_for(code) is None:
+                break
+        link = cls(family_id=family_id, created_by=created_by, code_hash=hash_token(code),
+                   code_expires_at=utcnow() + timedelta(minutes=cls.CODE_MINUTES))
+        return link, code
+
+    @classmethod
+    def waiting_for(cls, code):
+        """The unexpired, not yet linked link with this code, or None."""
+        if not code:
+            return None
+        return db.session.scalar(select(cls).where(cls.code_hash == hash_token(str(code)),
+                                                   cls.alexa_user_hash.is_(None),
+                                                   cls.code_expires_at > utcnow()))
+
+    @classmethod
+    def for_alexa_user(cls, user_id):
+        if not user_id:
+            return None
+        return db.session.scalar(select(cls).filter_by(alexa_user_hash=hash_token(user_id)))
+
+    def complete(self, user_id):
+        self.alexa_user_hash = hash_token(user_id)
+        self.code_hash = None
+        self.code_expires_at = None
+        self.linked_at = self.last_used_at = utcnow()

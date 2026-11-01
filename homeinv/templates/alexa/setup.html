@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% from '_forms.html' import post_button %}
+{% block title %}Alexa{% endblock %}
+{% block content %}
+<div class="d-flex flex-column gap-3">
+  <nav aria-label="Breadcrumb" class="small">
+    <a class="fw-semibold text-decoration-none" href="{{ url_for('main.more') }}">‹ More</a>
+  </nav>
+  <div>
+    <h1 class="page-title">Alexa</h1>
+    <div class="small text-body-secondary">Ask about and change your inventory by voice.</div>
+  </div>
+
+  {% if not enabled %}
+  <div class="alert alert-warning m-0" role="status" data-testid="alexa-off">
+    Alexa isn't turned on for this site yet. It needs the skill's ID in the <code>ALEXA_SKILL_ID</code> setting.
+    See <code>docs/ALEXA.md</code>.
+  </div>
+  {% endif %}
+
+  <section class="card-hi p-3 d-flex flex-column gap-2">
+    <h2 class="section-label m-0">Things to say</h2>
+    <ul class="small m-0 ps-3 d-flex flex-column gap-1">
+      <li>“Alexa, tell {{ invocation|title }} to add blueberries to the list”</li>
+      <li>“Alexa, ask {{ invocation|title }} how many coffees are in the cold room”</li>
+      <li>“Alexa, tell {{ invocation|title }} we used two coffees from the cold room”</li>
+      <li>“Alexa, tell {{ invocation|title }} I put three cans of soup in the pantry”</li>
+      <li>“Alexa, ask {{ invocation|title }} what's on the list”</li>
+    </ul>
+  </section>
+
+  <section class="card-hi p-3 d-flex flex-column gap-3" id="link" data-testid="alexa-link">
+    <h2 class="section-label m-0">Link an Alexa</h2>
+    {% if code %}
+    <div class="text-center" data-testid="alexa-code">
+      <div class="small text-body-secondary">Say to an Echo on that Amazon account:</div>
+      <div class="fw-semibold my-1">“Alexa, tell {{ invocation|title }} my code is”</div>
+      <div class="display-5 fw-bold" style="letter-spacing: .15em">{{ code.digits }}</div>
+      <div class="small text-body-secondary">Works once, for 10 minutes. Refresh this page after saying it.</div>
+    </div>
+    {% else %}
+    <p class="small text-body-secondary m-0">
+      Linking lets every Echo on one Amazon account use {{ current_membership().family.name }}'s inventory.
+      Do it once per Amazon account.
+    </p>
+    {% endif %}
+    {{ post_button(url_for('alexa.new_code'), 'Get a new code' if code else 'Get a code', 'btn btn-primary') }}
+  </section>
+
+  <section>
+    <h2 class="section-label">Linked</h2>
+    {% if links %}
+    <ul class="list-hi" data-testid="alexa-links">
+      {% for link in links %}
+      <li class="row-hi" data-testid="alexa-linked">
+        <span class="row-main">
+          <span class="row-title" style="font-size: 1rem">Amazon account {{ loop.index }}</span>
+          <span class="row-sub">Linked {{ link.linked_at|ago }}{% if link.created_by %} by {{ link.created_by.display_name }}{% endif %} · last used {{ link.last_used_at|ago }}</span>
+        </span>
+        {{ post_button(url_for('alexa.unlink', link_id=link.id), 'Unlink', 'btn btn-outline-danger btn-sm',
+                       confirm='Unlink this Amazon account? Its Alexa will stop working with your inventory.') }}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="card-hi p-3 small text-body-secondary">No Alexa is linked yet.</div>
+    {% endif %}
+  </section>
+
+  <details class="card-hi p-3">
+    <summary class="fw-semibold">Setting up the skill</summary>
+    <div class="small d-flex flex-column gap-2 mt-3">
+      <p class="m-0">The skill lives in your Amazon developer account; <code>docs/ALEXA.md</code> has the steps. You'll need:</p>
+      <div><span class="text-body-secondary">Endpoint:</span> <code data-testid="alexa-endpoint">{{ endpoint_url }}</code></div>
+      <div><span class="text-body-secondary">Invocation name:</span> <code>{{ invocation }}</code></div>
+      <div>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('alexa.interaction_model') }}">Download the interaction model</a>
+      </div>
+      <p class="m-0 text-body-secondary">It includes your item and place names, so Alexa hears them better. After adding lots of new items, download it again and paste it into the skill's JSON Editor.</p>
+    </div>
+  </details>
+</div>
+{% endblock %}

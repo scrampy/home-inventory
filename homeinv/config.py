@@ -51,6 +51,12 @@ def load_config(instance_path, overrides=None):
         "PROXY_HOPS": int(os.environ.get("PROXY_HOPS", "0")),
         "RATELIMIT_ENABLED": _bool("RATELIMIT_ENABLED", True),
         "RATELIMIT_STORAGE_URI": os.environ.get("RATELIMIT_STORAGE_URI", "memory://"),
+        # Alexa (alexa.py). The skill's ID from the Alexa developer console; voice
+        # requests are refused until it's set. Requests are always checked to come
+        # from Amazon: only tests can turn that off, never an environment variable.
+        "ALEXA_SKILL_ID": (os.environ.get("ALEXA_SKILL_ID") or "").strip() or None,
+        "ALEXA_INVOCATION_NAME": (os.environ.get("ALEXA_INVOCATION_NAME") or "home inventory").strip().lower(),
+        "ALEXA_VERIFY_REQUESTS": True,
         "PASSWORD_RESET_MAX_AGE": 60 * 60,  # 1 hour
         "INVITE_MAX_AGE_DAYS": 7,
         "SESSION_COOKIE_HTTPONLY": True,
@@ -101,5 +107,7 @@ def _check_production(config):
                 missing.append(key)
         if config.get("MAIL_FROM_EMAIL", "").endswith("@example.com"):
             missing.append("MAIL_FROM_EMAIL")
+    if not config.get("ALEXA_VERIFY_REQUESTS"):
+        missing.append("ALEXA_VERIFY_REQUESTS (must stay on)")
     if missing:
         raise ConfigError("Missing production settings: " + ", ".join(missing))
