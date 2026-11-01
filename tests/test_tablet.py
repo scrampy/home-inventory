@@ -127,7 +127,7 @@ def test_shopping_list_when_out_and_restock(app, client):
         tablet.post(f"/tablet/stock/{potatoes.id}/adjust", data={"delta": "-1"})
 
     tile = tablet.post(f"/tablet/stock/{potatoes.id}/list", data={}, headers=FETCH).data.decode()
-    assert "On the shopping list" in tile
+    assert "On the list ✓" in tile
     entry = db.session.scalar(select(ListEntry))
     assert entry.item.name == "Potatoes" and entry.added_by_id is None
 

@@ -1,16 +1,27 @@
-{# One item on the tablet screen: name, count, big − and + buttons. When it's out, a shopping-list button.
+{# One item on the tablet screen: name and count on one row, then big − and + buttons.
+   When it's out (or on the list), a shopping-list pill under the name.
    `here` is the tablet's place; items kept in a place inside it say which. #}
 {% set out = stock.quantity <= 0 %}
 {% set entry = stock.item.list_entry %}
 {% set on_list = entry is not none and not entry.in_cart %}
 <li class="tile{{ ' is-out' if out }}" id="tile-{{ stock.id }}" data-tile data-name="{{ stock.item.name_key }}" data-testid="tile">
   <div class="tile-head">
-    <span class="tile-name">{{ stock.item.name }}</span>
-    {% if stock.location_id != here.id %}<span class="tile-where">{{ stock.location.name }}</span>{% endif %}
-  </div>
-  <div class="tile-qty" aria-live="polite">
-    <span data-qty>{{ stock.quantity|qty }}</span>{% if stock.item.default_unit %} <span class="tile-unit">{{ stock.item.default_unit }}</span>{% endif %}
-    {% if out %}<span class="tile-out">All gone</span>{% endif %}
+    <div class="tile-label">
+      <span class="tile-name">{{ stock.item.name }}</span>
+      {% if stock.location_id != here.id %}<span class="tile-where">{{ stock.location.name }}</span>{% endif %}
+      {% if out or on_list %}
+      <form method="post" action="{{ url_for('tablet.toggle_list', stock_id=stock.id) }}" data-tile-form>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="list-button{{ ' is-on' if on_list }}" type="submit"
+                aria-label="{{ ('Take ' ~ stock.item.name ~ ' off the shopping list') if on_list else ('Add ' ~ stock.item.name ~ ' to the shopping list') }}">
+          {{ 'On the list ✓' if on_list else '+ Shopping list' }}</button>
+      </form>
+      {% endif %}
+    </div>
+    <div class="tile-qty" aria-live="polite">
+      <span data-qty>{{ stock.quantity|qty }}</span>
+      {% if stock.item.default_unit %}<span class="tile-unit">{{ stock.item.default_unit }}</span>{% endif %}
+    </div>
   </div>
   <div class="tile-buttons">
     <form method="post" action="{{ url_for('tablet.adjust', stock_id=stock.id) }}" data-tile-form data-delta="-1">
@@ -24,12 +35,5 @@
       <button class="step step-plus" type="submit" aria-label="Put one {{ stock.item.name }} in">+</button>
     </form>
   </div>
-  {% if out or on_list %}
-  <form method="post" action="{{ url_for('tablet.toggle_list', stock_id=stock.id) }}" data-tile-form>
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button class="list-button{{ ' is-on' if on_list }}" type="submit">
-      {{ 'On the shopping list ✓' if on_list else '+ Shopping list' }}</button>
-  </form>
-  {% endif %}
   {% if list_removed %}<div class="tile-note" data-testid="list-removed">Taken off the shopping list</div>{% endif %}
 </li>
