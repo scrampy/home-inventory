@@ -1,0 +1,23 @@
+<!doctype html>
+{# The tablet's own page shell: no tab bar, no Bootstrap, no web fonts, so it loads fast on an old tablet. #}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1E6B52">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>{% block title %}Tablet{% endblock %} · Home Inventory</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tablet.css') }}">
+</head>
+<body>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="messages" data-messages role="status">
+    {% for category, message in messages %}<div class="message message-{{ category }}">{{ message }}</div>{% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>

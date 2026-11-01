@@ -1,0 +1,15 @@
+{% extends 'tablet/base.html' %}
+{% block title %}Set up this tablet{% endblock %}
+{% block content %}
+<main class="setup">
+  <h1>This tablet isn't set up yet</h1>
+  <p>Set it up once and it will show one place, like the Cold Room, so anyone can tap + and − as things go in and out.</p>
+  <ol>
+    <li>Sign in on this tablet.</li>
+    <li>Open the place this tablet will live in.</li>
+    <li>Open <strong>Tablet for …</strong> and tap <strong>Use this device as the … tablet</strong>.</li>
+  </ol>
+  <p>You'll be signed out on the tablet, and it will come back to this page showing that place.</p>
+  <a class="setup-button" href="{{ url_for('auth.login', next=url_for('places.index')) }}">Sign in to set up</a>
+</main>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends 'tablet/base.html' %}
+{% block title %}{{ here.name }}{% endblock %}
+{% block content %}
+<header class="top">
+  <div class="top-title">
+    <h1>{{ here.name }}</h1>
+    <p>Tap <strong>+</strong> when you put something in, <strong>−</strong> when you take it out.</p>
+  </div>
+  <form class="find" method="post" action="{{ url_for('tablet.add') }}" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <datalist id="item-names">{% for n in item_names %}<option value="{{ n }}">{% endfor %}</datalist>
+    <input type="search" name="name" list="item-names" maxlength="80" required data-filter
+           placeholder="Find, or add something new" aria-label="Find an item, or add something new to {{ here.name }}">
+    <button type="submit">Add</button>
+  </form>
+</header>
+
+<main>
+  {% if rows %}
+  <ul class="tiles" data-tiles>
+    {% for stock in rows %}{% include 'tablet/_tile.html' %}{% endfor %}
+  </ul>
+  <p class="empty" data-no-match hidden>Nothing here by that name. Tap <strong>Add</strong> to put one in {{ here.name }}.</p>
+  {% else %}
+  <p class="empty">Nothing recorded in {{ here.name }} yet. Type what's here above and tap <strong>Add</strong>.</p>
+  {% endif %}
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='tablet.js') }}"></script>{% endblock %}

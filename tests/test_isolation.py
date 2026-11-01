@@ -8,9 +8,10 @@ import pytest
 from werkzeug.routing import IntegerConverter
 from sqlalchemy import select
 
-from helpers import invite, signup, user
+from helpers import invite, login, signup, user
 from homeinv.extensions import db
-from homeinv.models import Aisle, Family, Invitation, Item, ListEntry, Location, Membership, Price, Stock, Store
+from homeinv.models import (Aisle, Family, Invitation, Item, ListEntry, Location, Membership, Price, Stock, Store,
+                            Tablet)
 
 
 @pytest.fixture
@@ -32,6 +33,10 @@ def two_families(client, new_client):
     eve_item = db.session.scalar(select(Item.id).filter_by(name="Eve item"))
     eve.post(f"/items/{eve_item}/prices", data={"price": "4.99"})
     invite(eve, "friend@example.com")
+    # A tablet set up for Eve's pantry (setting one up signs out on that device).
+    eve_tablet = new_client()
+    login(eve_tablet, "eve@example.com")
+    eve_tablet.post("/tablet/setup", data={"location_id": eve_loc})
     # Ann's own rows, to mix with Eve's IDs.
     client.post("/stores", data={"name": "Ann store"})
     client.post("/items", data={"name": "Ann item"})
@@ -47,6 +52,7 @@ def two_families(client, new_client):
         "stock": db.session.scalar(select(Stock.id)),
         "entry": db.session.scalar(select(ListEntry.id)),
         "price": db.session.scalar(select(Price.id)),
+        "tablet": db.session.scalar(select(Tablet.id)),
         "ann_store": db.session.scalar(select(Store.id).filter_by(name="Ann store")),
         "ann_item": db.session.scalar(select(Item.id).filter_by(name="Ann item")),
     }
@@ -93,7 +99,14 @@ CASES = {
     "inventory.adjust": [("POST", "/inventory/{stock}/adjust", {"delta": "1"})],
     "inventory.set_quantity": [("POST", "/inventory/{stock}/set", {"quantity": "99"})],
     "inventory.delete": [("POST", "/inventory/{stock}/delete", {})],
+    "tablet.unpair": [("POST", "/tablets/{tablet}/unpair", {})],
+    # These two run as a tablet set up in Ann's family (see TABLET_ENDPOINTS).
+    "tablet.adjust": [("POST", "/tablet/stock/{stock}/adjust", {"delta": "1"})],
+    "tablet.toggle_list": [("POST", "/tablet/stock/{stock}/list", {})],
 }
+
+# Used from a tablet, not a signed-in person: the test turns Ann's browser into one first.
+TABLET_ENDPOINTS = {"tablet.adjust", "tablet.toggle_list"}
 
 
 def snapshot():
@@ -116,6 +129,7 @@ def snapshot():
     rows["prices"] = sorted((pr.item.name, pr.cents) for pr in db.session.scalars(
         select(Price).filter_by(family_id=eve_family.id)))
     rows["all_prices"] = db.session.query(Price).count()
+    rows["tablets"] = [t.location.name for t in db.session.scalars(select(Tablet).filter_by(family_id=eve_family.id))]
     rows["family"] = eve_family.name
     rows["members"] = sorted((m.user.email, m.role) for m in eve_family.memberships)
     rows["invites"] = [(i.email, i.revoked_at) for i in eve_family.invitations]
@@ -125,6 +139,10 @@ def snapshot():
 @pytest.mark.parametrize("endpoint", sorted(CASES))
 def test_other_familys_ids_are_not_found(client, two_families, endpoint):
     # Ann is an admin of her own family, so any refusal is about Eve's data, not Ann's role.
+    if endpoint in TABLET_ENDPOINTS:
+        client.post("/places/add", data={"name": "Ann room"})
+        ann_room = db.session.scalar(select(Location.id).filter_by(name="Ann room"))
+        assert client.post("/tablet/setup", data={"location_id": ann_room}).status_code == 302
     before = snapshot()
     for method, template, data in CASES[endpoint]:
         url = template.format(**two_families)
@@ -140,6 +158,7 @@ def test_cannot_use_other_familys_place_in_forms(client, two_families):
     eve_place = str(two_families["location"])
     assert client.post("/inventory/add", data={"location_id": eve_place, "name": "Sneaky"}).status_code == 404
     assert client.post("/places/add", data={"name": "Sneaky", "parent_id": eve_place}).status_code == 404
+    assert client.post("/tablet/setup", data={"location_id": eve_place}).status_code == 404
     client.post("/places/add", data={"name": "Ann home"})
     ann_home = db.session.scalar(select(Location.id).filter_by(name="Ann home"))
     assert client.post(f"/places/{ann_home}/move", data={"parent_id": eve_place}).status_code == 404

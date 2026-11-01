@@ -50,6 +50,38 @@
   {% endif %}
   </div>
 
+  <details class="card-hi p-3" id="tablets" data-testid="tablets"{% if request.args.get('tablets') %} open{% endif %}>
+    <summary class="fw-semibold">Tablet for {{ place.name }}{% if place.tablets %} <span class="small text-body-secondary fw-normal">· {{ place.tablets|length }} set up</span>{% endif %}</summary>
+    <div class="d-flex flex-column gap-3 mt-3">
+      <p class="small text-body-secondary m-0">
+        Keep an old tablet in {{ place.name }} so anyone can tap + and − as things go in and out.
+        To set one up: on the tablet, sign in, open this page, and tap the button below.
+        The tablet then shows only {{ place.name }}{% if node.children %} and the places inside it{% endif %},
+        and stays set up after you're signed out.
+      </p>
+      {% if place.tablets %}
+      <ul class="list-unstyled m-0 d-flex flex-column gap-2">
+        {% for tablet in place.tablets %}
+        <li class="d-flex align-items-center gap-2" data-testid="tablet">
+          <span class="flex-grow-1 small">
+            Set up {{ tablet.created_at|ago }}{% if tablet.created_by %} by {{ tablet.created_by.display_name }}{% endif %}
+            · last used {{ tablet.last_seen_at|ago }}
+          </span>
+          {{ post_button(url_for('tablet.unpair', tablet_id=tablet.id), 'Unpair', 'btn btn-outline-danger btn-sm',
+                         confirm='Unpair this tablet? It will stop showing ' ~ place.name ~ ' until it is set up again.') }}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <form method="post" action="{{ url_for('tablet.setup') }}" class="m-0"
+            onsubmit="return confirm({{ ('Make this device the ' ~ place.name ~ ' tablet? You will be signed out here, and this device will only show ' ~ place.name ~ '.')|tojson|forceescape }})">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="location_id" value="{{ place.id }}">
+        <button class="btn btn-outline-primary" type="submit">Use this device as the {{ place.name }} tablet</button>
+      </form>
+    </div>
+  </details>
+
   <details class="card-hi p-3">
     <summary class="fw-semibold">Edit this place</summary>
     <div class="d-flex flex-column gap-3 mt-3">

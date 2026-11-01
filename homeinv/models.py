@@ -325,3 +325,40 @@ class Price(db.Model):
 
 Item.prices = relationship(Price, back_populates="item", passive_deletes=True,
                            order_by=lambda: Price.recorded_at.desc())
+
+
+class Tablet(db.Model):
+    """A shared device kept in one place, like an old tablet in the cold room.
+
+    It isn't signed in as anyone. It holds a long-lived cookie whose hash is
+    stored here, and can only see and change stock in its place and the places
+    inside it. Deleting the row (Unpair) stops it working. See tablet.py.
+    """
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    family_id: Mapped[int] = mapped_column(ForeignKey("family.id", ondelete="CASCADE"), index=True)
+    location_id: Mapped[int] = mapped_column(ForeignKey("location.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("user.id", ondelete="SET NULL"))
+    last_seen_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+    location: Mapped[Location] = relationship(back_populates="tablets")
+    created_by: Mapped[User | None] = relationship()
+
+    @classmethod
+    def create(cls, location, created_by):
+        token = secrets.token_urlsafe(32)
+        tablet = cls(family_id=location.family_id, location=location, token_hash=hash_token(token),
+                     created_by=created_by)
+        return tablet, token
+
+    @classmethod
+    def find_by_token(cls, token):
+        if not token:
+            return None
+        return db.session.scalar(select(cls).filter_by(token_hash=hash_token(token)))
+
+
+Location.tablets = relationship(Tablet, back_populates="location", passive_deletes=True,
+                                order_by=lambda: Tablet.created_at)

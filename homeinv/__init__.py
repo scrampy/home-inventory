@@ -27,7 +27,7 @@ def _active_tab(endpoint):
     area = endpoint.split(".")[0]
     if area in ("find",) or endpoint in ("catalog.item",):
         return "find"
-    if area in ("places", "inventory"):
+    if area in ("places", "inventory", "tablet"):
         return "places"
     if area == "shopping":
         return "list"
@@ -74,9 +74,10 @@ def create_app(overrides=None):
     from .places import bp as places_bp
     from .prices import bp as prices_bp
     from .shopping import bp as shopping_bp
+    from .tablet import bp as tablet_bp
 
     for blueprint in (main_bp, auth_bp, family_bp, find_bp, places_bp, catalog_bp, inventory_bp, shopping_bp,
-                      prices_bp):
+                      prices_bp, tablet_bp):
         app.register_blueprint(blueprint)
 
     from . import cli

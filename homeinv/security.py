@@ -107,6 +107,10 @@ def admin_required(view):
 # read or change another's rows, even by guessing IDs.
 
 def current_family_id():
+    # A tablet (tablet.py) works for its own family, whoever else may be signed in on it.
+    tablet = g.get("tablet")
+    if tablet is not None:
+        return tablet.family_id
     return current_membership().family_id
 
 
