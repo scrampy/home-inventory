@@ -71,9 +71,14 @@ def _help():
             "We used two coffees from the cold room. Or: what's on the list.")
 
 
+CODE_PROMPT = "Say: my code is, followed by the six numbers."
+
+
 def _not_linked():
-    return (f"This Alexa isn't linked to a family yet. In Home Inventory, open More, then Alexa, and tap "
-            f"Get a code. Then say: Alexa, tell {_invocation()} my code is, followed by the six numbers.")
+    """Stays listening, so the code can be said next without naming the skill again."""
+    return _say("This Alexa isn't linked to a family yet. To get a code, open Home Inventory, then More, "
+                "then Alexa, and tap Get a code. When you have it, " + CODE_PROMPT[0].lower() + CODE_PROMPT[1:],
+                end=False, reprompt=CODE_PROMPT)
 
 
 def _join(parts, word="and"):
@@ -413,15 +418,18 @@ def _link(user_id, intent, link):
     code = re.sub(r"\D", "", _slot(intent, "code") or "")
     waiting = AlexaLink.waiting_for(code) if len(code) == 6 else None
     if waiting is None or not user_id:
-        return _say("That code didn't work. Codes last 10 minutes. Get a new one in Home Inventory, "
-                    "under More, then Alexa.")
+        text = "That code didn't work. Codes last 10 minutes. Get a new one in Home Inventory, under More, then Alexa."
+        if link is None:  # not linked yet: listen for another try
+            return _say(text + " Then " + CODE_PROMPT[0].lower() + CODE_PROMPT[1:], end=False, reprompt=CODE_PROMPT)
+        return _say(text)
     if link is not None:
         db.session.delete(link)  # linked to a family before: this replaces it
         db.session.flush()
     waiting.complete(user_id)
     db.session.commit()
     family = db.session.get(Family, waiting.family_id)
-    return _say(f"Done. This Alexa is now linked to {family.name}. Try: ask {_invocation()} what's on the list.")
+    return _say(f"Done. This Alexa is now linked to {family.name}. What would you like? Try: what's on the list.",
+                end=False, reprompt="Try: what's on the list.")
 
 
 def _user_id(envelope):
@@ -452,7 +460,7 @@ def handle(envelope):
     if name in ("AMAZON.StopIntent", "AMAZON.CancelIntent", "AMAZON.NoIntent"):
         return _say("OK.")
     if link is None:
-        return _say(_not_linked())
+        return _not_linked()
 
     g.alexa_link = link
     if link.last_used_at is None or utcnow() - link.last_used_at > SEEN_EVERY:

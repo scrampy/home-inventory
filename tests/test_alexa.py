@@ -118,6 +118,19 @@ def test_an_unlinked_alexa_is_told_how_to_link(client):
     assert "Get a code" in client.get("/more/alexa").data.decode()
 
 
+def test_opening_an_unlinked_skill_waits_for_the_code(client):
+    """"Alexa, open home slice" ... "my code is 123456": no need to say the skill's name twice."""
+    signup(client, "ann@example.com", name="Ann")
+    text, body = ask(client)  # LaunchRequest
+    assert "isn't linked" in text and body["response"]["shouldEndSession"] is False
+    assert "my code is" in body["response"]["reprompt"]["outputSpeech"]["text"]
+
+    text, body = ask(client, "LinkIntent", code="999999")  # wrong: still listening
+    assert "didn't work" in text and body["response"]["shouldEndSession"] is False
+
+    assert "now linked to Ann's family" in link(client)
+
+
 def test_a_code_links_once_and_unlinking_stops_it(client, home):
     assert db.session.scalar(select(AlexaLink)).linked_at is not None
     assert "Coffee" in ask(client, "HowManyIntent", item="coffee")[0]
