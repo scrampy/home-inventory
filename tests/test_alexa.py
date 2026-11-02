@@ -297,6 +297,11 @@ def test_launch_help_stop_and_session_end(client, home):
     assert resp.status_code == 200 and resp.get_json()["response"] == {}
 
 
+def test_launch_greets_with_an_abbreviated_name(app, client, home):
+    app.config["ALEXA_INVOCATION_NAME"] = "home e."  # Amazon's style for a spelled letter
+    assert ask(client)[0].startswith("Home E. What would you like?")
+
+
 # --- The endpoint itself ---------------------------------------------------
 
 def test_other_skills_and_junk_are_refused(client, home):
