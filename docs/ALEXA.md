@@ -59,7 +59,7 @@ Save.
 
 ### 6. Link your Amazon account
 
-In the app: **More › Alexa › Get a code**. Within 10 minutes, say to an Echo (or type in the Test tab): "Alexa, tell Home Inventory my code is 482193". It answers *Done. This Alexa is now linked to ...*.
+In the app: **More › Alexa › Get a code**. Within 10 minutes, say to an Echo (or type in the Test tab): "Alexa, open Home Inventory". It says the Echo isn't linked and waits; then say "my code is 482193". It answers *Done. This Alexa is now linked to ...*. (The one-breath "Alexa, tell Home Inventory my code is 482193" also works in the Test tab, but Echos often don't match it.)
 
 Every Echo on that Amazon account now works. A family member with **their own** Amazon account needs the skill shared with them: **Distribution › Availability › Beta Test**, add their email, and once they accept they link with their own code. (The console may ask for a few store details before it allows a beta test.)
 
@@ -69,4 +69,6 @@ Every Echo on that Amazon account now works. A family member with **their own** 
 - **The log shows `Refused an Alexa request: ...`:** a request arrived but failed a check. The message says which. `for another skill` means `ALEXA_SKILL_ID` doesn't match the console's Skill ID.
 - **"Sorry, something went wrong in Home Inventory":** the log has the error, under `Alexa request failed`.
 - **Alexa says the skill doesn't exist or opens something else:** check the skill's locale matches the Echo's language, and that testing is set to Development.
+- **After renaming the skill, the Test tab works but the Echo says nothing:** the Echo is still using the old name. In the Test tab, set testing to **Off**, then back to **Development**, and wait a couple of minutes. Also avoid names another published skill already uses (for example "Homey").
+- **An Echo that worked now says it isn't linked:** disabling and re-enabling the skill in the Alexa app gives the Amazon account a new ID. Link again with a new code, then unlink the old entry on the Alexa page (its "last used" stops changing).
 - **It mishears an item:** download and paste the interaction model again so it includes the item's name. Names that sound like common words work best.
