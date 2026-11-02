@@ -480,6 +480,22 @@ def handle(envelope):
 @bp.route("/alexa", methods=["POST"])
 @csrf.exempt
 @limiter.limit("60 per minute")
+def _heard(envelope):
+    """For the log: the request type, the intent Alexa matched and its slot values (never a link code)."""
+    req = envelope.get("request") or {}
+    if req.get("type") != "IntentRequest":
+        return req.get("type") + (f" ({req['reason']})" if req.get("reason") else "")
+    intent = req.get("intent") or {}
+    slots = {} if intent.get("name") == "LinkIntent" else {
+        k: v.get("value") for k, v in (intent.get("slots") or {}).items() if v.get("value")}
+    return f"{intent.get('name')} {slots}" if slots else str(intent.get("name"))
+
+
+def _said(reply):
+    speech = ((reply.get("response") or {}).get("outputSpeech") or {}).get("text") or ""
+    return speech[:80] + ("…" if len(speech) > 80 else "")
+
+
 def endpoint():
     """Where Amazon sends what was said. Not for browsers."""
     skill_id = current_app.config["ALEXA_SKILL_ID"]
@@ -502,7 +518,9 @@ def endpoint():
         log.warning("Refused an Alexa request for another skill: %s", _application_id(envelope))
         abort(400)
     try:
-        return jsonify(handle(envelope))
+        reply = handle(envelope)
+        log.info("Alexa heard %s; said %r", _heard(envelope), _said(reply))
+        return jsonify(reply)
     except Exception:
         log.exception("Alexa request failed")
         db.session.rollback()
