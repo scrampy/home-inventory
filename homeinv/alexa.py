@@ -477,9 +477,6 @@ def handle(envelope):
     return handler(intent, attributes)
 
 
-@bp.route("/alexa", methods=["POST"])
-@csrf.exempt
-@limiter.limit("60 per minute")
 def _heard(envelope):
     """For the log: the request type, the intent Alexa matched and its slot values (never a link code)."""
     req = envelope.get("request") or {}
@@ -496,6 +493,9 @@ def _said(reply):
     return speech[:80] + ("…" if len(speech) > 80 else "")
 
 
+@bp.route("/alexa", methods=["POST"])
+@csrf.exempt
+@limiter.limit("60 per minute")
 def endpoint():
     """Where Amazon sends what was said. Not for browsers."""
     skill_id = current_app.config["ALEXA_SKILL_ID"]
