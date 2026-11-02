@@ -460,7 +460,7 @@ def handle(envelope):
         db.session.commit()
 
     if kind == "LaunchRequest":
-        return _say("Home Inventory. What would you like? " + _help(), end=False,
+        return _say(f"{_invocation().title()}. What would you like? " + _help(), end=False,
                     reprompt="Try: what's on the list.")
     handler = INTENTS.get(name)
     if handler is None:  # Help, Fallback, NavigateHome, or something new

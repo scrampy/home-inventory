@@ -35,7 +35,7 @@ Each phrase has to name the skill ("ask Home Inventory ..."). "Alexa, add bluebe
 
 In Coolify, add the environment variable `ALEXA_SKILL_ID` = that ID and redeploy. Until it's set, `/alexa` answers 404 and the Alexa page shows a warning.
 
-If you'd rather say something other than "Home Inventory", also set `ALEXA_INVOCATION_NAME` (lower case, at least two words, e.g. `our pantry`) and use the same name in the console.
+If you'd rather say something other than "Home Inventory", also set `ALEXA_INVOCATION_NAME` (lower case, e.g. `homey` or `our pantry`), then download and paste the interaction model again (step 3) so the console gets the same name. Amazon wants two words for published skills, but a private development skill can use one. If Alexa opens some other skill instead, pick a name nothing else uses.
 
 ### 3. Paste the interaction model
 
@@ -49,7 +49,7 @@ Do this again after adding a lot of new items or places, so Alexa knows the name
 **Build › Endpoint**:
 - **Service endpoint type:** HTTPS
 - **Default Region:** `https://home-inventory-dev.scrampy.cc/alexa` (the Alexa page shows the exact address)
-- **SSL certificate type:** *My development endpoint has a certificate from a trusted certificate authority* (Cloudflare's certificate)
+- **SSL certificate type:** *My development endpoint is a sub-domain of a domain that has a wildcard certificate from a certificate authority* (Cloudflare gives the site a wildcard certificate; the "trusted certificate authority" option makes the console say it can't reach the skill)
 
 Save.
 
