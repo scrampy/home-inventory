@@ -2,7 +2,9 @@
 
 ## brain-server (Docker Compose), replacing Coolify
 
-**Status (2026-11-09):** a private test copy runs on brain-server (192.168.0.157) at commit 460f25b, using a copy of the live database taken that evening. It isn't public yet: the live site is still the Coolify one below. The move is planned because the Coolify VM runs on a Windows PC ("geforce") that restarts without warning, and the VM's address can change when it comes back.
+**Status (2026-11-09):** live. https://home-inventory-dev.scrampy.cc is served from brain-server (192.168.0.157) since the evening of 2026-11-09, at commit d09b816. The Coolify app is stopped but not deleted; its volume still holds the old database and backups. We moved because the Coolify VM runs on a Windows PC ("geforce") that restarts without warning, and the VM's address can change when it comes back.
+
+In Cloudflare, the hostname is a route of the **docker-host** tunnel (brain-server's own, configured by file, so the dashboard can't edit it). The old **virtualbox-host** tunnel on geforce no longer has this hostname; it still serves bookshelf-analyzer.
 
 How a request will reach the app: Cloudflare → brain-server's own cloudflared tunnel (systemd service, routes in `/etc/cloudflared/config.yml`) → `127.0.0.1:3001` → the `home-inventory` container. That is one proxy, so `PROXY_HOPS=1`.
 
@@ -39,6 +41,8 @@ Always use SQLite's backup API (`.backup()`), never a plain file copy, because t
 
 ### Cutover checklist (Coolify → brain-server)
 
+Done on 2026-11-09. Kept as the recipe for the other apps on the VM. Copy the database before switching DNS: once DNS points at brain-server, visitors write to that copy.
+
 1. Stop the Coolify app so nobody writes to the old database: `GET /api/v1/applications/m8c8wg0sockg4kowsckcoows/stop`.
 2. On brain-server, `docker compose stop`. Copy a fresh `.backup()` of the live database into `data/homeinv.db`, then `docker compose up -d`.
 3. Add this route to `/etc/cloudflared/config.yml`, above the final `http_status:404` line, then `sudo systemctl restart cloudflared`. Plex, Home Assistant and photos drop for a few seconds.
@@ -50,9 +54,11 @@ Always use SQLite's backup API (`.backup()`), never a plain file copy, because t
 5. Check: https://home-inventory-dev.scrampy.cc/healthz, log in, an Alexa command, both tablets.
 6. To go back: point the DNS record back at the geforce tunnel and start the Coolify app again (copy the database back first if anything was saved on brain-server).
 
-## Coolify (current live site)
+## Coolify (retired 2026-11-09)
 
-**Status (2026-10-20):** deployed from branch `rebuild` at https://home-inventory-dev.scrampy.cc. The settings below are in place. To redeploy after pushing, use the API (below) or the Redeploy button. The GitHub webhook can't reach Coolify, so pushes don't deploy on their own.
+The app was stopped on 2026-11-09 after the move to brain-server. To fall back to it, copy brain-server's database back into its volume first, start it with `GET /api/v1/applications/m8c8wg0sockg4kowsckcoows/start`, and add the route `home-inventory-dev.scrampy.cc` → `http://10.2.2.240:3001` back to the virtualbox-host tunnel. The rest of this section describes how it was set up.
+
+**Status (2026-10-20):** deployed from branch `rebuild`. The settings below were in place. To redeploy after pushing, use the API (below) or the Redeploy button. The GitHub webhook can't reach Coolify, so pushes don't deploy on their own.
 
 ## Deploying through the API
 
