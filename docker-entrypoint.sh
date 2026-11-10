@@ -4,9 +4,11 @@
 set -e
 
 if [ "$(id -u)" = "0" ]; then
-    # A freshly mounted volume or host folder may belong to root. Hand it to the
-    # app user, then rerun this script as that user.
+    # A freshly mounted volume or host folder may belong to root or to the host
+    # user who copied a database in. Hand the folders and the database files to
+    # the app user, then rerun this script as that user.
     chown app:app /app/data /app/instance
+    chown app:app /app/data/homeinv.db* 2>/dev/null || true
     HOME=/home/app exec setpriv --reuid=app --regid=app --init-groups "$0" "$@"
 fi
 

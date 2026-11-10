@@ -1,0 +1,35 @@
+# home-inventory on brain-server (Docker Compose, no Coolify).
+#
+# Lives in ~/compose/home-inventory on brain-server:
+#   compose.yaml   this file
+#   .env           secrets and settings (chmod 600, never committed)
+#   src/           git checkout of the app, built from its Dockerfile
+#   data/          the SQLite database (back up with deploy.sh, never a plain file copy)
+#
+# The app listens on 127.0.0.1 only: the public way in is brain-server's
+# cloudflared tunnel (/etc/cloudflared/config.yml), which runs on the same host.
+# Deploy and roll back with deploy/brain-server/deploy.sh from the repo.
+
+name: home-inventory
+
+services:
+  web:
+    build: ./src
+    image: home-inventory:${IMAGE_TAG:-latest}
+    container_name: home-inventory
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # One proxy in front of the app: cloudflared on this host.
+      PROXY_HOPS: "1"
+      PORT: "8000"
+    ports:
+      - "127.0.0.1:3001:8000"
+    volumes:
+      - ./data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # The Dockerfile's HEALTHCHECK (python, hits /healthz) is used as is.

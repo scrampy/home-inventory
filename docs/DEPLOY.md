@@ -1,4 +1,56 @@
-# Deploying on Coolify
+# Deploying
+
+## brain-server (Docker Compose), replacing Coolify
+
+**Status (2026-11-09):** a private test copy runs on brain-server (192.168.0.157) at commit 460f25b, using a copy of the live database taken that evening. It isn't public yet: the live site is still the Coolify one below. The move is planned because the Coolify VM runs on a Windows PC ("geforce") that restarts without warning, and the VM's address can change when it comes back.
+
+How a request will reach the app: Cloudflare → brain-server's own cloudflared tunnel (systemd service, routes in `/etc/cloudflared/config.yml`) → `127.0.0.1:3001` → the `home-inventory` container. That is one proxy, so `PROXY_HOPS=1`.
+
+Files on brain-server, in `~/compose/home-inventory` (the same layout as the other apps in `~/compose`):
+
+| | |
+|---|---|
+| `compose.yaml` | copy of [deploy/brain-server/compose.yaml](../deploy/brain-server/compose.yaml) |
+| `.env` | secrets and settings, chmod 600, never committed. Keys: `SECRET_KEY`, `APP_BASE_URL`, `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAILJET_SENDER_EMAIL`, `MAILJET_SENDER_NAME`, `ALEXA_SKILL_ID`, `ALEXA_INVOCATION_NAME` |
+| `src/` | git checkout of this repo, built with its Dockerfile |
+| `data/` | `homeinv.db`, and `backups/` made by the deploy script |
+
+The app listens on `127.0.0.1` only, so nothing on the network can reach it except through the tunnel. To look at it from this PC:
+
+```bash
+ssh -N -L 3001:127.0.0.1:3001 brain@192.168.0.157
+```
+
+then open http://localhost:3001.
+
+### Deploying
+
+Push first: brain-server builds from GitHub. Then, from the repo:
+
+```bash
+deploy/brain-server/deploy.sh
+```
+
+It backs up the database to `data/backups/`, checks out the latest `rebuild` commit, builds, starts it and waits for `/healthz`. Other commands: `deploy.sh <branch|sha>`, `deploy.sh status`, `deploy.sh backup [label]`, `deploy.sh rollback <tag>`. A rollback doesn't undo a schema migration; if the newer version migrated the database, stop the app and put the backup the deploy made back as `data/homeinv.db`.
+
+### Copying a database in
+
+Always use SQLite's backup API (`.backup()`), never a plain file copy, because the database runs in WAL mode. A file you copy in belongs to your user; the entrypoint hands it to the app user at start-up. Before 2026-11-09 it didn't, and the app could read the database but not write it.
+
+### Cutover checklist (Coolify → brain-server)
+
+1. Stop the Coolify app so nobody writes to the old database: `GET /api/v1/applications/m8c8wg0sockg4kowsckcoows/stop`.
+2. On brain-server, `docker compose stop`. Copy a fresh `.backup()` of the live database into `data/homeinv.db`, then `docker compose up -d`.
+3. Add this route to `/etc/cloudflared/config.yml`, above the final `http_status:404` line, then `sudo systemctl restart cloudflared`. Plex, Home Assistant and photos drop for a few seconds.
+   ```yaml
+     - hostname: home-inventory-dev.scrampy.cc
+       service: http://localhost:3001
+   ```
+4. In the Cloudflare dashboard, point the DNS record `home-inventory-dev` (CNAME, proxied) at `31ec14f0-2cdd-431c-a3c4-fb9b08003c08.cfargotunnel.com`. If the geforce tunnel lists this hostname under its public hostnames, remove it there first.
+5. Check: https://home-inventory-dev.scrampy.cc/healthz, log in, an Alexa command, both tablets.
+6. To go back: point the DNS record back at the geforce tunnel and start the Coolify app again (copy the database back first if anything was saved on brain-server).
+
+## Coolify (current live site)
 
 **Status (2026-10-20):** deployed from branch `rebuild` at https://home-inventory-dev.scrampy.cc. The settings below are in place. To redeploy after pushing, use the API (below) or the Redeploy button. The GitHub webhook can't reach Coolify, so pushes don't deploy on their own.
 
